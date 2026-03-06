@@ -8,6 +8,7 @@
 
 #include "app/command_line.h"
 #include "app/runtime_profile.h"
+#include "app/site_predictor.h"
 #include "browser/browser_controller.h"
 #include "cef/velox_client.h"
 #include "include/cef_browser.h"
@@ -23,7 +24,8 @@ class BrowserWindow : public cef::BrowserEventDelegate {
                 settings::AppSettings settings,
                 app::CommandLineOptions command_line,
                 app::RuntimeProfile runtime_profile,
-                profiling::MetricsRecorder* metrics);
+                profiling::MetricsRecorder* metrics,
+                app::SitePredictor* site_predictor);
 
   bool Create();
   void Show(int command_show);
@@ -84,6 +86,7 @@ class BrowserWindow : public cef::BrowserEventDelegate {
   app::CommandLineOptions command_line_;
   app::RuntimeProfile runtime_profile_;
   profiling::MetricsRecorder* metrics_ = nullptr;
+  app::SitePredictor* site_predictor_ = nullptr;
 
   HWND hwnd_ = nullptr;
   HWND brand_label_ = nullptr;
@@ -91,6 +94,7 @@ class BrowserWindow : public cef::BrowserEventDelegate {
   HWND forward_button_ = nullptr;
   HWND reload_button_ = nullptr;
   HWND stop_button_ = nullptr;
+  HWND home_button_ = nullptr;
   HWND address_bar_ = nullptr;
   HWND profile_badge_ = nullptr;
   HWND privacy_badge_ = nullptr;

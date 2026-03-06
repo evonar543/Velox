@@ -3,6 +3,7 @@
 #include <filesystem>
 
 #include "platform/win/crash_handler.h"
+#include "platform/win/cache_maintenance.h"
 #include "platform/win/file_utils.h"
 #include "platform/win/logger.h"
 #include "settings/settings_loader.h"
@@ -47,15 +48,19 @@ int AppBootstrap::Run() {
   if (!InitializeSettings()) {
     return 1;
   }
-
-  runtime_profile_ = DetectRuntimeProfile(settings_.optimization);
   metrics_.SetEnabled(settings_.benchmarking.enabled);
   metrics_.SetOutputPath(settings_.benchmarking.output_file);
   metrics_.Mark("startup.entry");
+
+  MaintainCacheBudget();
+
+  runtime_profile_ = DetectRuntimeProfile(settings_.optimization);
   metrics_.RecordText("runtime.profile", RuntimeTierToString(runtime_profile_.tier));
   metrics_.RecordNumeric("runtime.logical_cores", static_cast<double>(runtime_profile_.logical_cores));
   metrics_.RecordNumeric("runtime.memory_mb", static_cast<double>(runtime_profile_.physical_memory_mb));
   metrics_.RecordNumeric("runtime.renderer_process_limit", static_cast<double>(runtime_profile_.renderer_process_limit));
+  site_predictor_ = std::make_unique<SitePredictor>(settings_, &metrics_);
+  site_predictor_->Start();
 
   if (!InitializeCef(main_args)) {
     return 1;
@@ -64,7 +69,8 @@ int AppBootstrap::Run() {
   metrics_.Mark("cef.initialized");
   metrics_.RecordMemory("after_cef_init");
 
-  browser_window_ = std::make_unique<browser::BrowserWindow>(instance_, settings_, command_line_, runtime_profile_, &metrics_);
+  browser_window_ =
+      std::make_unique<browser::BrowserWindow>(instance_, settings_, command_line_, runtime_profile_, &metrics_, site_predictor_.get());
   if (!browser_window_->Create()) {
     platform::LogError("Failed to create the main window.");
     Shutdown();
@@ -110,6 +116,26 @@ bool AppBootstrap::InitializeSettings() {
   platform::CrashHandler::Install(settings_.paths.log_dir / L"dumps");
   platform::LogInfo("Settings loaded from " + platform::ToUtf8(config_path.wstring()));
   return true;
+}
+
+void AppBootstrap::MaintainCacheBudget() {
+  if (settings_.incognito_default) {
+    return;
+  }
+
+  const std::uint64_t max_cache_size_bytes =
+      static_cast<std::uint64_t>(settings_.optimization.max_cache_size_mb) * 1024ULL * 1024ULL;
+  const auto result =
+      platform::EnforceCacheBudget(settings_.paths.cache_dir, max_cache_size_bytes, settings_.optimization.cache_trim_target_percent);
+
+  metrics_.RecordNumeric("cache.size_before_mb", static_cast<double>(result.size_before_bytes) / (1024.0 * 1024.0));
+  metrics_.RecordNumeric("cache.size_after_mb", static_cast<double>(result.size_after_bytes) / (1024.0 * 1024.0));
+
+  if (result.trimmed) {
+    metrics_.RecordNumeric("cache.trimmed_mb", static_cast<double>(result.bytes_removed) / (1024.0 * 1024.0));
+    metrics_.RecordNumeric("cache.trimmed_files", static_cast<double>(result.removed_files));
+    platform::LogInfo("Trimmed on-disk cache to stay within the configured budget.");
+  }
 }
 
 bool AppBootstrap::InitializeCef(const CefMainArgs& main_args) {
@@ -163,8 +189,12 @@ void AppBootstrap::Shutdown() {
   }
   shut_down_ = true;
 
-  metrics_.Flush();
   browser_window_.reset();
+  if (site_predictor_ != nullptr) {
+    site_predictor_->Shutdown();
+    site_predictor_.reset();
+  }
+  metrics_.Flush();
   if (cef_initialized_) {
     CefShutdown();
   }

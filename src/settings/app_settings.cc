@@ -43,6 +43,32 @@ void FinalizeSettings(AppSettings& settings, const std::filesystem::path& base_d
   if (settings.window.height < 600) {
     settings.window.height = 600;
   }
+
+  if (settings.search.provider_name.empty()) {
+    settings.search.provider_name = L"Google";
+  }
+  if (settings.search.query_url_template.empty()) {
+    settings.search.query_url_template = L"https://www.google.com/search?q={query}";
+  }
+  if (settings.search.query_url_template.find(L"{query}") == std::wstring::npos) {
+    settings.search.query_url_template += settings.search.query_url_template.find(L'?') == std::wstring::npos ? L"?q={query}" : L"&q={query}";
+  }
+
+  if (settings.optimization.predictor_host_count < 1) {
+    settings.optimization.predictor_host_count = 1;
+  }
+  if (settings.optimization.predictor_host_count > 12) {
+    settings.optimization.predictor_host_count = 12;
+  }
+  if (settings.optimization.max_cache_size_mb < 128) {
+    settings.optimization.max_cache_size_mb = 128;
+  }
+  if (settings.optimization.cache_trim_target_percent < 55) {
+    settings.optimization.cache_trim_target_percent = 55;
+  }
+  if (settings.optimization.cache_trim_target_percent > 95) {
+    settings.optimization.cache_trim_target_percent = 95;
+  }
 }
 
 }  // namespace velox::settings

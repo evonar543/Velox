@@ -355,9 +355,18 @@ AppSettings LoadSettings(const std::filesystem::path& config_path,
       ApplyIfBool(*blocking, L"block_trackers", &settings.blocking.block_trackers);
     }
 
+    if (const JsonValue* search = GetObjectMember(*json, L"search")) {
+      ApplyIfString(*search, L"provider_name", &settings.search.provider_name);
+      ApplyIfString(*search, L"query_url_template", &settings.search.query_url_template);
+    }
+
     if (const JsonValue* optimization = GetObjectMember(*json, L"optimization")) {
       ApplyIfBool(*optimization, L"auto_tune", &settings.optimization.auto_tune);
       ApplyIfInt(*optimization, L"renderer_process_limit", &settings.optimization.renderer_process_limit);
+      ApplyIfBool(*optimization, L"predictive_warmup", &settings.optimization.predictive_warmup);
+      ApplyIfInt(*optimization, L"predictor_host_count", &settings.optimization.predictor_host_count);
+      ApplyIfInt(*optimization, L"max_cache_size_mb", &settings.optimization.max_cache_size_mb);
+      ApplyIfInt(*optimization, L"cache_trim_target_percent", &settings.optimization.cache_trim_target_percent);
     }
   }
 

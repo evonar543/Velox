@@ -3,6 +3,7 @@
 #include <commctrl.h>
 
 #include <algorithm>
+#include <cwchar>
 #include <cwctype>
 
 #include "include/cef_parser.h"
@@ -16,12 +17,24 @@ constexpr int kBackButtonWidth = 62;
 constexpr int kForwardButtonWidth = 62;
 constexpr int kReloadButtonWidth = 76;
 constexpr int kStopButtonWidth = 58;
+constexpr int kHomeButtonWidth = 62;
 constexpr int kControlHeight = 36;
 constexpr int kBrandWidth = 108;
 constexpr int kBadgeWidth = 96;
 constexpr int kStatusHeight = 18;
 constexpr int kProgressHeight = 3;
-constexpr wchar_t kSearchUrlPrefix[] = L"https://duckduckgo.com/?q=";
+
+std::wstring BuildSearchUrl(std::wstring_view query, std::wstring_view search_url_template) {
+  const std::wstring encoded_query = CefURIEncode(std::wstring(query), true).ToWString();
+  const size_t token_pos = search_url_template.find(L"{query}");
+  if (token_pos == std::wstring::npos) {
+    return std::wstring(search_url_template) + encoded_query;
+  }
+
+  std::wstring result(search_url_template);
+  result.replace(token_pos, wcslen(L"{query}"), encoded_query);
+  return result;
+}
 
 LRESULT CALLBACK AddressBarSubclassProc(HWND window,
                                         UINT message,
@@ -58,11 +71,12 @@ LayoutRects ComputeLayout(const RECT& client_rect) {
   rects.forward = {rects.back.right + kPadding, top, rects.back.right + kPadding + kForwardButtonWidth, row_bottom};
   rects.reload = {rects.forward.right + kPadding, top, rects.forward.right + kPadding + kReloadButtonWidth, row_bottom};
   rects.stop = {rects.reload.right + kPadding, top, rects.reload.right + kPadding + kStopButtonWidth, row_bottom};
+  rects.home = {rects.stop.right + kPadding, top, rects.stop.right + kPadding + kHomeButtonWidth, row_bottom};
 
   rects.privacy = {width - kPadding - kBadgeWidth, top, width - kPadding, row_bottom};
   rects.profile = {rects.privacy.left - kPadding - kBadgeWidth, top, rects.privacy.left - kPadding, row_bottom};
 
-  const LONG address_left = rects.stop.right + kPadding;
+  const LONG address_left = rects.home.right + kPadding;
   const LONG address_right = std::max<LONG>(address_left + 160, rects.profile.left - kPadding);
   rects.address = {address_left, top, address_right, row_bottom};
   rects.status = {kPadding, status_top, width - kPadding, status_top + kStatusHeight};
@@ -76,7 +90,7 @@ void InstallAddressBarSubclass(HWND address_bar, HWND parent) {
   SetWindowSubclass(address_bar, AddressBarSubclassProc, 1, reinterpret_cast<DWORD_PTR>(parent));
 }
 
-std::wstring NormalizeAddressInput(std::wstring value) {
+std::wstring NormalizeAddressInput(std::wstring value, std::wstring_view search_url_template) {
   value.erase(value.begin(), std::find_if(value.begin(), value.end(), [](wchar_t ch) { return !iswspace(ch); }));
   value.erase(std::find_if(value.rbegin(), value.rend(), [](wchar_t ch) { return !iswspace(ch); }).base(), value.end());
 
@@ -99,7 +113,7 @@ std::wstring NormalizeAddressInput(std::wstring value) {
 
   // Treat plain text as a search query so the omnibox behaves like a browser,
   // not like a strict URL field.
-  return std::wstring(kSearchUrlPrefix) + CefURIEncode(value, true).ToWString();
+  return BuildSearchUrl(value, search_url_template);
 }
 
 }  // namespace velox::browser::win32

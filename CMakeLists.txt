@@ -24,6 +24,7 @@ set(VELOX_SOURCES
   src/app/app_bootstrap.cc
   src/app/command_line.cc
   src/app/runtime_profile.cc
+  src/app/site_predictor.cc
   src/browser/browser_controller.cc
   src/browser/browser_window.cc
   src/browser/win32_controls.cc
@@ -32,6 +33,7 @@ set(VELOX_SOURCES
   src/cef/request_context_factory.cc
   src/cef/velox_cef_app.cc
   src/cef/velox_client.cc
+  src/platform/win/cache_maintenance.cc
   src/platform/win/crash_handler.cc
   src/platform/win/file_utils.cc
   src/platform/win/logger.cc
@@ -47,6 +49,7 @@ set(VELOX_HEADERS
   src/app/app_bootstrap.h
   src/app/command_line.h
   src/app/runtime_profile.h
+  src/app/site_predictor.h
   src/browser/browser_controller.h
   src/browser/browser_window.h
   src/browser/win32_controls.h
@@ -55,6 +58,7 @@ set(VELOX_HEADERS
   src/cef/request_context_factory.h
   src/cef/velox_cef_app.h
   src/cef/velox_client.h
+  src/platform/win/cache_maintenance.h
   src/platform/win/crash_handler.h
   src/platform/win/file_utils.h
   src/platform/win/logger.h
@@ -82,6 +86,7 @@ target_link_libraries(
     gdi32
     ole32
     shell32)
+target_link_libraries(velox PRIVATE ws2_32)
 
 target_compile_definitions(
   velox

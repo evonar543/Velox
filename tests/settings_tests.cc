@@ -31,7 +31,18 @@ int wmain() {
             "    \"block_external_protocols\": true\n"
             "  },\n"
             "  \"blocking\": { \"enabled\": true, \"block_ads\": true, \"block_trackers\": true },\n"
-            "  \"optimization\": { \"auto_tune\": true, \"renderer_process_limit\": 0 },\n"
+            "  \"search\": {\n"
+            "    \"provider_name\": \"Google\",\n"
+            "    \"query_url_template\": \"https://www.google.com/search?q={query}\"\n"
+            "  },\n"
+            "  \"optimization\": {\n"
+            "    \"auto_tune\": true,\n"
+            "    \"renderer_process_limit\": 0,\n"
+            "    \"predictive_warmup\": true,\n"
+            "    \"predictor_host_count\": 5,\n"
+            "    \"max_cache_size_mb\": 768,\n"
+            "    \"cache_trim_target_percent\": 75\n"
+            "  },\n"
             "  \"incognito_default\": false\n"
             "}\n";
   config.close();
@@ -63,7 +74,13 @@ int wmain() {
   assert(settings.blocking.enabled);
   assert(settings.blocking.block_ads);
   assert(settings.blocking.block_trackers);
+  assert(settings.search.provider_name == L"Google");
+  assert(settings.search.query_url_template == L"https://www.google.com/search?q={query}");
   assert(settings.optimization.auto_tune);
   assert(settings.optimization.renderer_process_limit == 0);
+  assert(settings.optimization.predictive_warmup);
+  assert(settings.optimization.predictor_host_count == 5);
+  assert(settings.optimization.max_cache_size_mb == 768);
+  assert(settings.optimization.cache_trim_target_percent == 75);
   return 0;
 }

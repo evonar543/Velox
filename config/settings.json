@@ -31,9 +31,17 @@
     "block_ads": true,
     "block_trackers": true
   },
+  "search": {
+    "provider_name": "Google",
+    "query_url_template": "https://www.google.com/search?q={query}"
+  },
   "optimization": {
     "auto_tune": true,
-    "renderer_process_limit": 0
+    "renderer_process_limit": 0,
+    "predictive_warmup": true,
+    "predictor_host_count": 4,
+    "max_cache_size_mb": 512,
+    "cache_trim_target_percent": 80
   },
   "incognito_default": false
 }

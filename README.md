@@ -6,10 +6,13 @@ Velox is a minimal Chromium Embedded Framework browser shell for Windows. It is 
 
 - Real Chromium-based rendering through CEF
 - Native Win32 host window with address bar and navigation buttons
-- Polished native toolbar with runtime/privacy badges, status text, and load progress
+- Polished native toolbar with home button, runtime/privacy badges, status text, and load progress
 - Multi-process startup via `CefExecuteProcess` and `CefInitialize`
 - Auto-tuned runtime profile that scales Chromium process limits to the current machine
 - Aggressive browser-shell tuning via Chromium command-line switches for lower idle work
+- Omnibox-style address field that opens URLs directly and sends plain text to a configurable search engine
+- Startup cache budgeting that trims oversized cache directories before Chromium starts
+- Lightweight predictive warmup that remembers hot hosts and primes DNS for faster repeat visits
 - JSON-backed settings
 - Structured file logging and crash dump generation
 - Benchmark hooks for startup, navigation, first paint, and memory
@@ -101,13 +104,28 @@ The portable build is expected to launch correctly even if the current working d
     "block_ads": true,
     "block_trackers": true
   },
+  "search": {
+    "provider_name": "Google",
+    "query_url_template": "https://www.google.com/search?q={query}"
+  },
   "optimization": {
     "auto_tune": true,
-    "renderer_process_limit": 0
+    "renderer_process_limit": 0,
+    "predictive_warmup": true,
+    "predictor_host_count": 4,
+    "max_cache_size_mb": 512,
+    "cache_trim_target_percent": 80
   },
   "incognito_default": false
 }
 ```
+
+Notes:
+
+- `search.query_url_template` must contain `{query}` somewhere in the URL. Velox URL-encodes the typed text before inserting it.
+- `optimization.max_cache_size_mb` controls when the disk cache gets trimmed on startup.
+- `optimization.cache_trim_target_percent` controls how far Velox trims once the cache exceeds budget.
+- `optimization.predictive_warmup` and `optimization.predictor_host_count` control the lightweight hot-host DNS warmup pass.
 
 ## How CEF Is Wired In
 
@@ -116,8 +134,11 @@ The portable build is expected to launch correctly even if the current working d
 - The browser process loads settings, starts logging and crash handling, and then calls `CefInitialize`.
 - `VeloxCefApp::OnBeforeCommandLineProcessing` applies browser-shell switches that cut background services, keep GPU acceleration on, and honor the detected runtime profile.
 - `BrowserPolicy` owns request-context preferences, third-party cookie policy, cross-site referrer trimming, WebRTC privacy hardening, request header privacy signals, and ad/tracker blocking.
+- `SitePredictor` stores a tiny hot-host history under the profile directory and warms the most likely hosts in the background during startup.
+- `CacheMaintenance` trims old cache files before CEF spins up so long-running profiles do not quietly turn cold start into sludge.
 - The native Win32 shell creates a child `CefBrowser` window for page rendering.
 - The Win32 shell keeps the UI cheap: owner-drawn buttons, common-controls progress bar, and direct layout without any extra widget framework.
+- The omnibox decides between URL navigation and search queries locally, then expands search terms through the configured search template.
 - The renderer process injects a tiny paint observer that reports `first-paint` and `first-contentful-paint` back to the browser process via `CefProcessMessage`.
 
 ## Known Limitations
@@ -126,6 +147,7 @@ The portable build is expected to launch correctly even if the current working d
 - No Windows sandbox in v1
 - No downloads manager
 - The built-in blocker uses a curated hostname/pattern list, not a full EasyList-scale rules engine yet
+- Predictive warmup currently primes DNS only; it does not keep hidden live pages or speculative renderers around
 - No custom networking stack or scheme handlers yet
 - No session restore, extensions, sync, accounts, or browser chrome beyond the toolbar
 - ATL is not installed in the current Build Tools environment, so CEF prints an ATL warning during configure. Velox does not rely on ATL in this build.

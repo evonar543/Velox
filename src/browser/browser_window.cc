@@ -90,12 +90,14 @@ BrowserWindow::BrowserWindow(HINSTANCE instance,
                              settings::AppSettings settings,
                              app::CommandLineOptions command_line,
                              app::RuntimeProfile runtime_profile,
-                             profiling::MetricsRecorder* metrics)
+                             profiling::MetricsRecorder* metrics,
+                             app::SitePredictor* site_predictor)
     : instance_(instance),
       settings_(std::move(settings)),
       command_line_(std::move(command_line)),
       runtime_profile_(std::move(runtime_profile)),
-      metrics_(metrics) {}
+      metrics_(metrics),
+      site_predictor_(site_predictor) {}
 
 bool BrowserWindow::Create() {
   INITCOMMONCONTROLSEX common_controls{};
@@ -302,6 +304,10 @@ LRESULT BrowserWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
         case win32::kStopButtonId:
           controller_.Stop();
           return 0;
+        case win32::kHomeButtonId:
+          controller_.Navigate(settings_.startup_url);
+          SetStatusText(L"Returning home...");
+          return 0;
         case win32::kAddressBarId:
           if (notification_code == win32::kAddressEnterNotification) {
             NavigateFromAddressBar();
@@ -427,6 +433,8 @@ void BrowserWindow::CreateControls() {
                                    reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kReloadButtonId)), instance_, nullptr);
   stop_button_ = CreateWindowExW(0, L"BUTTON", L"Stop", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
                                  reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kStopButtonId)), instance_, nullptr);
+  home_button_ = CreateWindowExW(0, L"BUTTON", L"Home", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
+                                 reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kHomeButtonId)), instance_, nullptr);
   address_bar_ = CreateWindowExW(WS_EX_CLIENTEDGE,
                                  L"EDIT",
                                  settings_.startup_url.c_str(),
@@ -448,7 +456,8 @@ void BrowserWindow::CreateControls() {
   progress_bar_ = CreateWindowExW(0, PROGRESS_CLASSW, nullptr, WS_CHILD | PBS_SMOOTH, 0, 0, 0, 0, hwnd_,
                                   reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kProgressBarId)), instance_, nullptr);
   win32::InstallAddressBarSubclass(address_bar_, hwnd_);
-  SendMessageW(address_bar_, EM_SETCUEBANNER, TRUE, reinterpret_cast<LPARAM>(L"Enter a URL and press Enter"));
+  const std::wstring cue_text = L"Search " + settings_.search.provider_name + L" or enter address";
+  SendMessageW(address_bar_, EM_SETCUEBANNER, TRUE, reinterpret_cast<LPARAM>(cue_text.c_str()));
   SendMessageW(address_bar_, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(8, 8));
   SendMessageW(progress_bar_, PBM_SETRANGE32, 0, 100);
   SendMessageW(progress_bar_, PBM_SETBKCOLOR, 0, static_cast<LPARAM>(RGB(233, 238, 243)));
@@ -477,6 +486,7 @@ void BrowserWindow::LayoutChildren() {
   MoveWindow(forward_button_, layout.forward.left, layout.forward.top, layout.forward.right - layout.forward.left, layout.forward.bottom - layout.forward.top, TRUE);
   MoveWindow(reload_button_, layout.reload.left, layout.reload.top, layout.reload.right - layout.reload.left, layout.reload.bottom - layout.reload.top, TRUE);
   MoveWindow(stop_button_, layout.stop.left, layout.stop.top, layout.stop.right - layout.stop.left, layout.stop.bottom - layout.stop.top, TRUE);
+  MoveWindow(home_button_, layout.home.left, layout.home.top, layout.home.right - layout.home.left, layout.home.bottom - layout.home.top, TRUE);
   MoveWindow(address_bar_, layout.address.left, layout.address.top, layout.address.right - layout.address.left, layout.address.bottom - layout.address.top, TRUE);
   MoveWindow(profile_badge_, layout.profile.left, layout.profile.top, layout.profile.right - layout.profile.left,
              layout.profile.bottom - layout.profile.top, TRUE);
@@ -511,7 +521,7 @@ void BrowserWindow::ResizeBrowserHost() {
 
 void BrowserWindow::NavigateFromAddressBar() {
   const std::wstring raw_input = LoadTextFromWindow(address_bar_);
-  const std::wstring url = win32::NormalizeAddressInput(raw_input);
+  const std::wstring url = win32::NormalizeAddressInput(raw_input, settings_.search.query_url_template);
   if (url.empty()) {
     return;
   }
@@ -539,6 +549,7 @@ void BrowserWindow::UpdateNavigationButtons() {
   EnableWindow(back_button_, controller_.can_go_back());
   EnableWindow(forward_button_, controller_.can_go_forward());
   EnableWindow(stop_button_, controller_.is_loading());
+  EnableWindow(home_button_, controller_.has_browser());
 }
 
 void BrowserWindow::CreateThemeResources() {
@@ -599,6 +610,7 @@ void BrowserWindow::ApplyControlFonts() const {
   set_font(forward_button_, ui_font_);
   set_font(reload_button_, ui_font_);
   set_font(stop_button_, ui_font_);
+  set_font(home_button_, ui_font_);
   set_font(address_bar_, ui_font_);
   set_font(profile_badge_, ui_font_bold_);
   set_font(privacy_badge_, ui_font_bold_);
@@ -631,7 +643,10 @@ std::wstring BrowserWindow::BuildDefaultStatusText() const {
   if (!current_host_.empty()) {
     return L"Viewing " + current_host_;
   }
-  return settings_.incognito_default ? L"Incognito session ready" : L"Privacy shield active";
+  if (settings_.incognito_default) {
+    return L"Incognito session ready";
+  }
+  return L"Ready | " + settings_.search.provider_name + L" search | Shield on";
 }
 
 std::wstring BrowserWindow::BuildPrivacyBadgeText() const {
@@ -775,6 +790,9 @@ void BrowserWindow::HandleLoadingStateMessage() {
       UpdateProgressBar(8);
     }
   } else {
+    if (site_predictor_ != nullptr && !current_host_.empty()) {
+      site_predictor_->RecordNavigation(current_host_);
+    }
     UpdateProgressBar(0);
     SetStatusText(BuildDefaultStatusText());
   }

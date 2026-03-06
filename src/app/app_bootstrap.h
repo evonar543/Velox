@@ -6,6 +6,7 @@
 
 #include "app/command_line.h"
 #include "app/runtime_profile.h"
+#include "app/site_predictor.h"
 #include "browser/browser_window.h"
 #include "cef/velox_cef_app.h"
 #include "profiling/metrics_recorder.h"
@@ -21,6 +22,7 @@ class AppBootstrap {
  private:
   bool InitializeDiagnostics();
   bool InitializeSettings();
+  void MaintainCacheBudget();
   bool InitializeCef(const CefMainArgs& main_args);
   int RunMessageLoop();
   void Shutdown();
@@ -32,6 +34,7 @@ class AppBootstrap {
   settings::AppSettings settings_;
   RuntimeProfile runtime_profile_;
   profiling::MetricsRecorder metrics_;
+  std::unique_ptr<SitePredictor> site_predictor_;
   std::unique_ptr<browser::BrowserWindow> browser_window_;
   CefRefPtr<cef::VeloxCefApp> cef_app_;
   bool cef_initialized_ = false;

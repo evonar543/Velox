@@ -41,9 +41,18 @@ struct BlockingSettings {
   bool block_trackers = true;
 };
 
+struct SearchSettings {
+  std::wstring provider_name = L"Google";
+  std::wstring query_url_template = L"https://www.google.com/search?q={query}";
+};
+
 struct OptimizationSettings {
   bool auto_tune = true;
   int renderer_process_limit = 0;
+  bool predictive_warmup = true;
+  int predictor_host_count = 4;
+  int max_cache_size_mb = 512;
+  int cache_trim_target_percent = 80;
 };
 
 struct AppSettings {
@@ -53,6 +62,7 @@ struct AppSettings {
   BenchmarkingSettings benchmarking;
   PrivacySettings privacy;
   BlockingSettings blocking;
+  SearchSettings search;
   OptimizationSettings optimization;
   platform::LogLevel log_level = platform::LogLevel::kInfo;
   bool incognito_default = false;
