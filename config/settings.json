@@ -21,6 +21,8 @@
     "global_privacy_control": true,
     "block_third_party_cookies": true,
     "strip_tracking_query_parameters": true,
+    "strip_cross_site_referrers": true,
+    "block_webrtc_non_proxied_udp": true,
     "disable_password_manager": true,
     "block_external_protocols": true
   },
@@ -28,6 +30,10 @@
     "enabled": true,
     "block_ads": true,
     "block_trackers": true
+  },
+  "optimization": {
+    "auto_tune": true,
+    "renderer_process_limit": 0
   },
   "incognito_default": false
 }

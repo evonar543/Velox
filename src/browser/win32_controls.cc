@@ -9,8 +9,13 @@ namespace velox::browser::win32 {
 
 namespace {
 
-constexpr int kPadding = 8;
-constexpr int kButtonWidth = 84;
+constexpr int kPadding = 12;
+constexpr int kButtonWidth = 44;
+constexpr int kControlHeight = 32;
+constexpr int kBrandWidth = 96;
+constexpr int kBadgeWidth = 120;
+constexpr int kStatusHeight = 16;
+constexpr int kProgressHeight = 4;
 
 LRESULT CALLBACK AddressBarSubclassProc(HWND window,
                                         UINT message,
@@ -35,13 +40,25 @@ LayoutRects ComputeLayout(const RECT& client_rect) {
   LayoutRects rects;
 
   const int width = client_rect.right - client_rect.left;
-  const int address_left = kPadding + (kButtonWidth + kPadding) * 4;
+  const int top = kPadding;
+  const int row_bottom = top + kControlHeight;
+  const int status_top = row_bottom + 8;
+  const int progress_top = status_top + kStatusHeight + 8;
 
-  rects.back = {kPadding, kPadding, kPadding + kButtonWidth, kToolbarHeight - kPadding};
-  rects.forward = {rects.back.right + kPadding, kPadding, rects.back.right + kPadding + kButtonWidth, kToolbarHeight - kPadding};
-  rects.reload = {rects.forward.right + kPadding, kPadding, rects.forward.right + kPadding + kButtonWidth, kToolbarHeight - kPadding};
-  rects.stop = {rects.reload.right + kPadding, kPadding, rects.reload.right + kPadding + kButtonWidth, kToolbarHeight - kPadding};
-  rects.address = {address_left, kPadding, std::max(address_left + 120, width - kPadding), kToolbarHeight - kPadding};
+  rects.brand = {kPadding, top, kPadding + kBrandWidth, row_bottom};
+  rects.back = {rects.brand.right + kPadding, top, rects.brand.right + kPadding + kButtonWidth, row_bottom};
+  rects.forward = {rects.back.right + kPadding, top, rects.back.right + kPadding + kButtonWidth, row_bottom};
+  rects.reload = {rects.forward.right + kPadding, top, rects.forward.right + kPadding + kButtonWidth, row_bottom};
+  rects.stop = {rects.reload.right + kPadding, top, rects.reload.right + kPadding + kButtonWidth, row_bottom};
+
+  rects.privacy = {width - kPadding - kBadgeWidth, top, width - kPadding, row_bottom};
+  rects.profile = {rects.privacy.left - kPadding - kBadgeWidth, top, rects.privacy.left - kPadding, row_bottom};
+
+  const LONG address_left = rects.stop.right + kPadding;
+  const LONG address_right = std::max<LONG>(address_left + 160, rects.profile.left - kPadding);
+  rects.address = {address_left, top, address_right, row_bottom};
+  rects.status = {kPadding, status_top, width - kPadding, status_top + kStatusHeight};
+  rects.progress = {kPadding, progress_top, width - kPadding, progress_top + kProgressHeight};
   rects.browser = {0, kToolbarHeight, width, client_rect.bottom};
 
   return rects;

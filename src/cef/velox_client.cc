@@ -96,6 +96,20 @@ void VeloxClient::OnTitleChange(CefRefPtr<CefBrowser> browser, const CefString& 
   }
 }
 
+void VeloxClient::OnStatusMessage(CefRefPtr<CefBrowser> browser, const CefString& value) {
+  (void)browser;
+  if (delegate_ != nullptr) {
+    delegate_->OnStatusMessage(value.ToWString());
+  }
+}
+
+void VeloxClient::OnLoadingProgressChange(CefRefPtr<CefBrowser> browser, double progress) {
+  (void)browser;
+  if (delegate_ != nullptr) {
+    delegate_->OnLoadProgress(progress);
+  }
+}
+
 void VeloxClient::OnLoadingStateChange(CefRefPtr<CefBrowser> browser,
                                        bool is_loading,
                                        bool can_go_back,

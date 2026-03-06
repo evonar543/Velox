@@ -15,6 +15,8 @@ class BrowserEventDelegate {
   virtual void OnTitleChanged(const std::wstring& title) = 0;
   virtual void OnLoadingStateChange(bool is_loading, bool can_go_back, bool can_go_forward) = 0;
   virtual void OnLoadError(const std::wstring& failed_url, const std::wstring& error_text) = 0;
+  virtual void OnStatusMessage(const std::wstring& status) = 0;
+  virtual void OnLoadProgress(double progress) = 0;
   virtual void OnRendererMetric(const std::string& name, double value) = 0;
 
  protected:
@@ -52,6 +54,8 @@ class VeloxClient : public CefClient,
   void OnBeforeClose(CefRefPtr<CefBrowser> browser) override;
   void OnAddressChange(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, const CefString& url) override;
   void OnTitleChange(CefRefPtr<CefBrowser> browser, const CefString& title) override;
+  void OnStatusMessage(CefRefPtr<CefBrowser> browser, const CefString& value) override;
+  void OnLoadingProgressChange(CefRefPtr<CefBrowser> browser, double progress) override;
   void OnLoadingStateChange(CefRefPtr<CefBrowser> browser, bool is_loading, bool can_go_back, bool can_go_forward) override;
   void OnLoadStart(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, TransitionType transition_type) override;
   void OnLoadEnd(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, int http_status_code) override;

@@ -343,6 +343,8 @@ AppSettings LoadSettings(const std::filesystem::path& config_path,
       ApplyIfBool(*privacy, L"global_privacy_control", &settings.privacy.global_privacy_control);
       ApplyIfBool(*privacy, L"block_third_party_cookies", &settings.privacy.block_third_party_cookies);
       ApplyIfBool(*privacy, L"strip_tracking_query_parameters", &settings.privacy.strip_tracking_query_parameters);
+      ApplyIfBool(*privacy, L"strip_cross_site_referrers", &settings.privacy.strip_cross_site_referrers);
+      ApplyIfBool(*privacy, L"block_webrtc_non_proxied_udp", &settings.privacy.block_webrtc_non_proxied_udp);
       ApplyIfBool(*privacy, L"disable_password_manager", &settings.privacy.disable_password_manager);
       ApplyIfBool(*privacy, L"block_external_protocols", &settings.privacy.block_external_protocols);
     }
@@ -351,6 +353,11 @@ AppSettings LoadSettings(const std::filesystem::path& config_path,
       ApplyIfBool(*blocking, L"enabled", &settings.blocking.enabled);
       ApplyIfBool(*blocking, L"block_ads", &settings.blocking.block_ads);
       ApplyIfBool(*blocking, L"block_trackers", &settings.blocking.block_trackers);
+    }
+
+    if (const JsonValue* optimization = GetObjectMember(*json, L"optimization")) {
+      ApplyIfBool(*optimization, L"auto_tune", &settings.optimization.auto_tune);
+      ApplyIfInt(*optimization, L"renderer_process_limit", &settings.optimization.renderer_process_limit);
     }
   }
 

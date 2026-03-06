@@ -241,6 +241,39 @@ void ApplyBooleanPreference(CefRefPtr<CefRequestContext> request_context, const 
   }
 }
 
+void ApplyStringPreference(CefRefPtr<CefRequestContext> request_context, const char* name, std::string_view value) {
+  if (request_context == nullptr || !request_context->CanSetPreference(name)) {
+    return;
+  }
+
+  CefRefPtr<CefValue> preference_value = CefValue::Create();
+  preference_value->SetString(std::string(value));
+  CefString error;
+  if (!request_context->SetPreference(name, preference_value, error)) {
+    platform::LogWarning("Failed to set preference " + std::string(name) + ": " + error.ToString());
+  }
+}
+
+std::wstring ExtractOrigin(const std::wstring& url) {
+  CefURLParts parts;
+  if (!CefParseURL(url, parts)) {
+    return {};
+  }
+
+  const std::wstring scheme = GetStringPart(parts.scheme);
+  const std::wstring host = GetStringPart(parts.host);
+  const std::wstring port = GetStringPart(parts.port);
+  if (scheme.empty() || host.empty()) {
+    return {};
+  }
+
+  std::wstring origin = scheme + L"://" + host;
+  if (!port.empty()) {
+    origin += L":" + port;
+  }
+  return origin;
+}
+
 }  // namespace
 
 BrowserPolicy::BrowserPolicy(settings::AppSettings settings, profiling::MetricsRecorder* metrics)
@@ -305,6 +338,7 @@ CefResourceRequestHandler::ReturnValue BrowserPolicy::OnBeforeResourceLoad(
     return RV_CANCEL;
   }
 
+  ApplyReferrerPolicy(request);
   ApplyPrivacyHeaders(request);
   return RV_CONTINUE;
 }
@@ -400,11 +434,44 @@ void BrowserPolicy::ApplyPrivacyHeaders(CefRefPtr<CefRequest> request) const {
   }
 }
 
+void BrowserPolicy::ApplyReferrerPolicy(CefRefPtr<CefRequest> request) const {
+  if (request == nullptr || !settings_.privacy.strip_cross_site_referrers) {
+    return;
+  }
+
+  const std::wstring referrer_url = request->GetReferrerURL().ToWString();
+  if (!IsHttpFamilyUrl(request->GetURL().ToWString()) || !IsHttpFamilyUrl(referrer_url)) {
+    return;
+  }
+
+  const std::wstring request_site = SiteKey(ExtractHost(request->GetURL().ToWString()));
+  const std::wstring referrer_site = SiteKey(ExtractHost(referrer_url));
+  if (request_site.empty() || referrer_site.empty() || request_site == referrer_site) {
+    return;
+  }
+
+  const auto resource_type = request->GetResourceType();
+  if (resource_type == RT_MAIN_FRAME || resource_type == RT_SUB_FRAME) {
+    const std::wstring origin = ExtractOrigin(referrer_url);
+    request->SetReferrer(origin, REFERRER_POLICY_ORIGIN_ONLY_ON_TRANSITION_CROSS_ORIGIN);
+    return;
+  }
+
+  request->SetReferrer(std::wstring{}, REFERRER_POLICY_NO_REFERRER);
+}
+
 void BrowserPolicy::ApplyContextPreferences(CefRefPtr<CefRequestContext> request_context) const {
   ApplyBooleanPreference(request_context, "enable_do_not_track", settings_.privacy.do_not_track);
+  ApplyBooleanPreference(request_context, "enable_hyperlink_auditing", false);
 
   if (settings_.privacy.block_third_party_cookies) {
     ApplyBooleanPreference(request_context, "profile.block_third_party_cookies", true);
+  }
+
+  if (settings_.privacy.block_webrtc_non_proxied_udp) {
+    ApplyStringPreference(request_context, "webrtc.ip_handling_policy", "disable_non_proxied_udp");
+    ApplyBooleanPreference(request_context, "webrtc.multiple_routes_enabled", false);
+    ApplyBooleanPreference(request_context, "webrtc.nonproxied_udp_enabled", false);
   }
 
   if (settings_.privacy.disable_password_manager) {

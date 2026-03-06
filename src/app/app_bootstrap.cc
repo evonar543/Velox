@@ -48,9 +48,14 @@ int AppBootstrap::Run() {
     return 1;
   }
 
+  runtime_profile_ = DetectRuntimeProfile(settings_.optimization);
   metrics_.SetEnabled(settings_.benchmarking.enabled);
   metrics_.SetOutputPath(settings_.benchmarking.output_file);
   metrics_.Mark("startup.entry");
+  metrics_.RecordText("runtime.profile", RuntimeTierToString(runtime_profile_.tier));
+  metrics_.RecordNumeric("runtime.logical_cores", static_cast<double>(runtime_profile_.logical_cores));
+  metrics_.RecordNumeric("runtime.memory_mb", static_cast<double>(runtime_profile_.physical_memory_mb));
+  metrics_.RecordNumeric("runtime.renderer_process_limit", static_cast<double>(runtime_profile_.renderer_process_limit));
 
   if (!InitializeCef(main_args)) {
     return 1;
@@ -59,7 +64,7 @@ int AppBootstrap::Run() {
   metrics_.Mark("cef.initialized");
   metrics_.RecordMemory("after_cef_init");
 
-  browser_window_ = std::make_unique<browser::BrowserWindow>(instance_, settings_, command_line_, &metrics_);
+  browser_window_ = std::make_unique<browser::BrowserWindow>(instance_, settings_, command_line_, runtime_profile_, &metrics_);
   if (!browser_window_->Create()) {
     platform::LogError("Failed to create the main window.");
     Shutdown();
@@ -117,6 +122,7 @@ bool AppBootstrap::InitializeCef(const CefMainArgs& main_args) {
   cef_settings.command_line_args_disabled = false;
   cef_settings.persist_session_cookies = false;
   cef_settings.log_severity = ToCefLogSeverity(settings_.log_level);
+  cef_app_->SetRuntimeProfile(runtime_profile_);
   platform::EnsureDirectory(settings_.paths.profile_dir);
   platform::EnsureDirectory(settings_.paths.cache_dir);
   CefString(&cef_settings.root_cache_path) = settings_.paths.profile_dir.wstring();

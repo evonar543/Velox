@@ -52,6 +52,7 @@ class BrowserPolicy : public CefRequestContextHandler,
  private:
   bool ShouldBlockRequest(CefRefPtr<CefRequest> request) const;
   void ApplyPrivacyHeaders(CefRefPtr<CefRequest> request) const;
+  void ApplyReferrerPolicy(CefRefPtr<CefRequest> request) const;
   void ApplyContextPreferences(CefRefPtr<CefRequestContext> request_context) const;
   bool IsThirdPartyRequest(CefRefPtr<CefRequest> request) const;
 

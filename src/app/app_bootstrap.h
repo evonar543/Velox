@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "app/command_line.h"
+#include "app/runtime_profile.h"
 #include "browser/browser_window.h"
 #include "cef/velox_cef_app.h"
 #include "profiling/metrics_recorder.h"
@@ -29,6 +30,7 @@ class AppBootstrap {
 
   CommandLineOptions command_line_;
   settings::AppSettings settings_;
+  RuntimeProfile runtime_profile_;
   profiling::MetricsRecorder metrics_;
   std::unique_ptr<browser::BrowserWindow> browser_window_;
   CefRefPtr<cef::VeloxCefApp> cef_app_;

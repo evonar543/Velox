@@ -23,6 +23,7 @@ set(VELOX_SOURCES
   src/app/main_win.cc
   src/app/app_bootstrap.cc
   src/app/command_line.cc
+  src/app/runtime_profile.cc
   src/browser/browser_controller.cc
   src/browser/browser_window.cc
   src/browser/win32_controls.cc
@@ -45,6 +46,7 @@ set(VELOX_SOURCES
 set(VELOX_HEADERS
   src/app/app_bootstrap.h
   src/app/command_line.h
+  src/app/runtime_profile.h
   src/browser/browser_controller.h
   src/browser/browser_window.h
   src/browser/win32_controls.h

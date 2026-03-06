@@ -29,6 +29,8 @@ struct PrivacySettings {
   bool global_privacy_control = true;
   bool block_third_party_cookies = true;
   bool strip_tracking_query_parameters = true;
+  bool strip_cross_site_referrers = true;
+  bool block_webrtc_non_proxied_udp = true;
   bool disable_password_manager = true;
   bool block_external_protocols = true;
 };
@@ -39,6 +41,11 @@ struct BlockingSettings {
   bool block_trackers = true;
 };
 
+struct OptimizationSettings {
+  bool auto_tune = true;
+  int renderer_process_limit = 0;
+};
+
 struct AppSettings {
   std::wstring startup_url = L"https://example.com";
   WindowSettings window;
@@ -46,6 +53,7 @@ struct AppSettings {
   BenchmarkingSettings benchmarking;
   PrivacySettings privacy;
   BlockingSettings blocking;
+  OptimizationSettings optimization;
   platform::LogLevel log_level = platform::LogLevel::kInfo;
   bool incognito_default = false;
 };
