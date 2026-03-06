@@ -39,6 +39,7 @@ class BrowserWindow : public cef::BrowserEventDelegate {
   void OnStatusMessage(const std::wstring& status) override;
   void OnLoadProgress(double progress) override;
   void OnRendererMetric(const std::string& name, double value) override;
+  void OnBrowserCommand(cef::BrowserCommand command) override;
 
  private:
   struct PendingLoadState {
@@ -54,6 +55,7 @@ class BrowserWindow : public cef::BrowserEventDelegate {
   void LayoutChildren();
   void ResizeBrowserHost();
   void NavigateFromAddressBar();
+  void FocusAddressBar();
   void UpdateNavigationButtons();
   void CreateThemeResources();
   void DestroyThemeResources();
@@ -75,6 +77,7 @@ class BrowserWindow : public cef::BrowserEventDelegate {
   void HandleLoadErrorMessage();
   void HandleStatusMessage();
   void HandleLoadProgressMessage();
+  void HandleBrowserCommand(cef::BrowserCommand command);
 
   HINSTANCE instance_ = nullptr;
   settings::AppSettings settings_;

@@ -4,7 +4,6 @@
 #include <string>
 
 #include "cef/render_metrics_bridge.h"
-#include "platform/win/logger.h"
 
 namespace velox::cef {
 
@@ -78,6 +77,8 @@ app::RuntimeProfile ResolveRuntimeProfile(CefRefPtr<CefCommandLine> command_line
     return *configured_profile;
   }
 
+  // Subprocesses reconstruct the browser-chosen profile from forwarded switches
+  // so every Chromium role stays in the same tuning envelope.
   app::RuntimeProfile profile;
   if (const auto tier = ReadRuntimeTier(command_line); tier.has_value()) {
     profile.tier = *tier;
@@ -135,6 +136,8 @@ void VeloxCefApp::OnBeforeCommandLineProcessing(const CefString& process_type,
 
 void VeloxCefApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> command_line) {
   const app::RuntimeProfile runtime_profile = runtime_profile_.value_or(app::RuntimeProfile{});
+  // Push our derived profile into child processes explicitly; relying on each
+  // subprocess to auto-detect the machine would make experimentation noisier.
   AppendSwitchWithValueIfMissing(command_line, kVeloxTierSwitch, app::RuntimeTierToString(runtime_profile.tier));
   AppendSwitchWithValueIfMissing(command_line, kVeloxRendererLimitSwitch,
                                  std::to_string(runtime_profile.renderer_process_limit));

@@ -1,11 +1,63 @@
 #include "cef/velox_client.h"
 
+#include <array>
 #include <sstream>
 
 #include "cef/render_metrics_bridge.h"
 #include "platform/win/logger.h"
 
 namespace velox::cef {
+
+namespace {
+
+bool HasModifier(int modifiers, cef_event_flags_t flag) {
+  return (modifiers & flag) != 0;
+}
+
+std::string DescribeMediaPermissions(uint32_t requested_permissions) {
+  if ((requested_permissions & CEF_MEDIA_PERMISSION_DEVICE_AUDIO_CAPTURE) != 0 &&
+      (requested_permissions & CEF_MEDIA_PERMISSION_DEVICE_VIDEO_CAPTURE) != 0) {
+    return "camera+microphone";
+  }
+  if ((requested_permissions & CEF_MEDIA_PERMISSION_DEVICE_VIDEO_CAPTURE) != 0) {
+    return "camera";
+  }
+  if ((requested_permissions & CEF_MEDIA_PERMISSION_DEVICE_AUDIO_CAPTURE) != 0) {
+    return "microphone";
+  }
+  return "media";
+}
+
+std::string DescribePermissionTypes(uint32_t requested_permissions) {
+  struct PermissionLabel {
+    uint32_t mask;
+    const char* label;
+  };
+
+  constexpr std::array<PermissionLabel, 6> kKnownPermissions = {{
+      {CEF_PERMISSION_TYPE_NOTIFICATIONS, "notifications"},
+      {CEF_PERMISSION_TYPE_GEOLOCATION, "geolocation"},
+      {CEF_PERMISSION_TYPE_CAMERA_STREAM, "camera"},
+      {CEF_PERMISSION_TYPE_MIC_STREAM, "microphone"},
+      {CEF_PERMISSION_TYPE_CLIPBOARD, "clipboard"},
+      {CEF_PERMISSION_TYPE_MULTIPLE_DOWNLOADS, "multiple-downloads"},
+  }};
+
+  std::string summary;
+  for (const auto& permission : kKnownPermissions) {
+    if ((requested_permissions & permission.mask) == 0) {
+      continue;
+    }
+    if (!summary.empty()) {
+      summary += "+";
+    }
+    summary += permission.label;
+  }
+
+  return summary.empty() ? "permission" : summary;
+}
+
+}  // namespace
 
 VeloxClient::VeloxClient(BrowserEventDelegate* delegate, profiling::MetricsRecorder* metrics)
     : delegate_(delegate), metrics_(metrics) {}
@@ -14,11 +66,19 @@ CefRefPtr<CefDisplayHandler> VeloxClient::GetDisplayHandler() {
   return this;
 }
 
+CefRefPtr<CefKeyboardHandler> VeloxClient::GetKeyboardHandler() {
+  return this;
+}
+
 CefRefPtr<CefLifeSpanHandler> VeloxClient::GetLifeSpanHandler() {
   return this;
 }
 
 CefRefPtr<CefLoadHandler> VeloxClient::GetLoadHandler() {
+  return this;
+}
+
+CefRefPtr<CefPermissionHandler> VeloxClient::GetPermissionHandler() {
   return this;
 }
 
@@ -108,6 +168,28 @@ void VeloxClient::OnLoadingProgressChange(CefRefPtr<CefBrowser> browser, double 
   if (delegate_ != nullptr) {
     delegate_->OnLoadProgress(progress);
   }
+}
+
+bool VeloxClient::OnPreKeyEvent(CefRefPtr<CefBrowser> browser,
+                                const CefKeyEvent& event,
+                                CefEventHandle os_event,
+                                bool* is_keyboard_shortcut) {
+  (void)browser;
+  (void)os_event;
+
+  if (is_keyboard_shortcut != nullptr) {
+    *is_keyboard_shortcut = false;
+  }
+
+  if (event.type != KEYEVENT_RAWKEYDOWN && event.type != KEYEVENT_KEYDOWN) {
+    return false;
+  }
+
+  const bool handled = TryHandleShortcut(event);
+  if (handled && is_keyboard_shortcut != nullptr) {
+    *is_keyboard_shortcut = true;
+  }
+  return handled;
 }
 
 void VeloxClient::OnLoadingStateChange(CefRefPtr<CefBrowser> browser,
@@ -204,6 +286,42 @@ bool VeloxClient::OnOpenURLFromTab(CefRefPtr<CefBrowser> browser,
   return true;
 }
 
+bool VeloxClient::OnRequestMediaAccessPermission(CefRefPtr<CefBrowser> browser,
+                                                 CefRefPtr<CefFrame> frame,
+                                                 const CefString& requesting_origin,
+                                                 uint32_t requested_permissions,
+                                                 CefRefPtr<CefMediaAccessCallback> callback) {
+  (void)browser;
+  (void)frame;
+
+  if (callback != nullptr) {
+    callback->Cancel();
+  }
+  RecordPermissionDecision("permission.media.denied", DescribeMediaPermissions(requested_permissions), requesting_origin);
+  if (delegate_ != nullptr) {
+    delegate_->OnStatusMessage(L"Blocked camera or microphone access");
+  }
+  return true;
+}
+
+bool VeloxClient::OnShowPermissionPrompt(CefRefPtr<CefBrowser> browser,
+                                         uint64_t prompt_id,
+                                         const CefString& requesting_origin,
+                                         uint32_t requested_permissions,
+                                         CefRefPtr<CefPermissionPromptCallback> callback) {
+  (void)browser;
+  (void)prompt_id;
+
+  if (callback != nullptr) {
+    callback->Continue(CEF_PERMISSION_RESULT_DENY);
+  }
+  RecordPermissionDecision("permission.prompt.denied", DescribePermissionTypes(requested_permissions), requesting_origin);
+  if (delegate_ != nullptr) {
+    delegate_->OnStatusMessage(L"Blocked site permission request");
+  }
+  return true;
+}
+
 bool VeloxClient::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser,
                                            CefRefPtr<CefFrame> frame,
                                            CefProcessId source_process,
@@ -225,6 +343,68 @@ bool VeloxClient::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser,
     delegate_->OnRendererMetric(name, value);
   }
   return true;
+}
+
+bool VeloxClient::TryHandleShortcut(const CefKeyEvent& event) const {
+  if (delegate_ == nullptr) {
+    return false;
+  }
+
+  const bool control_down = HasModifier(event.modifiers, EVENTFLAG_CONTROL_DOWN);
+  const bool alt_down = HasModifier(event.modifiers, EVENTFLAG_ALT_DOWN);
+  switch (event.windows_key_code) {
+    case 'L':
+      if (control_down) {
+        delegate_->OnBrowserCommand(BrowserCommand::kFocusAddressBar);
+        return true;
+      }
+      break;
+    case 'R':
+      if (control_down) {
+        delegate_->OnBrowserCommand(BrowserCommand::kReload);
+        return true;
+      }
+      break;
+    case 'W':
+      if (control_down) {
+        delegate_->OnBrowserCommand(BrowserCommand::kCloseWindow);
+        return true;
+      }
+      break;
+    case VK_F5:
+      delegate_->OnBrowserCommand(BrowserCommand::kReload);
+      return true;
+    case VK_ESCAPE:
+      delegate_->OnBrowserCommand(BrowserCommand::kStop);
+      return true;
+    case VK_F6:
+      delegate_->OnBrowserCommand(BrowserCommand::kFocusAddressBar);
+      return true;
+    case VK_LEFT:
+      if (alt_down) {
+        delegate_->OnBrowserCommand(BrowserCommand::kGoBack);
+        return true;
+      }
+      break;
+    case VK_RIGHT:
+      if (alt_down) {
+        delegate_->OnBrowserCommand(BrowserCommand::kGoForward);
+        return true;
+      }
+      break;
+  }
+
+  return false;
+}
+
+void VeloxClient::RecordPermissionDecision(std::string_view event_name,
+                                           std::string_view permission_name,
+                                           const CefString& requesting_origin) const {
+  const std::string origin = requesting_origin.ToString();
+  platform::LogInfo("Denied " + std::string(permission_name) + " permission for " + origin);
+  if (metrics_ != nullptr) {
+    metrics_->RecordText(event_name, std::string(permission_name) + "@" + origin);
+  }
 }
 
 }  // namespace velox::cef

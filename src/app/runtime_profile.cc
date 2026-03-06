@@ -10,6 +10,17 @@ namespace velox::app {
 namespace {
 
 constexpr std::uint64_t kMegabyte = 1024ull * 1024ull;
+constexpr int kDefaultRendererProcessLimit = 4;
+
+RuntimeTier TierFromRendererLimit(int renderer_process_limit) {
+  if (renderer_process_limit <= 2) {
+    return RuntimeTier::kLean;
+  }
+  if (renderer_process_limit <= 4) {
+    return RuntimeTier::kBalanced;
+  }
+  return RuntimeTier::kTurbo;
+}
 
 }  // namespace
 
@@ -29,26 +40,21 @@ RuntimeProfile DetectRuntimeProfile(const settings::OptimizationSettings& optimi
   if (optimization.renderer_process_limit > 0) {
     profile.renderer_process_limit = optimization.renderer_process_limit;
   } else if (!optimization.auto_tune) {
-    profile.renderer_process_limit = 4;
+    profile.renderer_process_limit = kDefaultRendererProcessLimit;
   } else if (profile.physical_memory_mb <= 8192 || profile.logical_cores <= 4) {
+    // Small machines pay more for extra renderer churn than they gain from it.
     profile.tier = RuntimeTier::kLean;
     profile.renderer_process_limit = 2;
   } else if (profile.physical_memory_mb <= 16384 || profile.logical_cores <= 8) {
     profile.tier = RuntimeTier::kBalanced;
-    profile.renderer_process_limit = 4;
+    profile.renderer_process_limit = kDefaultRendererProcessLimit;
   } else {
     profile.tier = RuntimeTier::kTurbo;
     profile.renderer_process_limit = 6;
   }
 
   if (optimization.renderer_process_limit > 0) {
-    if (profile.renderer_process_limit <= 2) {
-      profile.tier = RuntimeTier::kLean;
-    } else if (profile.renderer_process_limit <= 4) {
-      profile.tier = RuntimeTier::kBalanced;
-    } else {
-      profile.tier = RuntimeTier::kTurbo;
-    }
+    profile.tier = TierFromRendererLimit(profile.renderer_process_limit);
   }
 
   return profile;

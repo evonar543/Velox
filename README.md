@@ -15,8 +15,10 @@ Velox is a minimal Chromium Embedded Framework browser shell for Windows. It is 
 - Benchmark hooks for startup, navigation, first paint, and memory
 - Optional incognito scaffold using a dedicated in-memory request context
 - Built-in privacy defaults: `DNT`, `Sec-GPC`, third-party cookie blocking, cross-site referrer reduction, WebRTC UDP hardening, and password-manager disablement
+- Sensitive site permission requests are denied by default for a quieter, privacy-first shell
 - Built-in lightweight blocking for common ad and tracker hosts plus tracking-parameter stripping
 - Single-tab popup collapse so sites reuse the current browser instead of spawning extra windows
+- Keyboard shortcuts for faster navigation without extra chrome overhead
 
 ## Requirements
 
@@ -56,6 +58,14 @@ Useful flags:
 - `--log-file=logs/velox.log`
 - `--dump-benchmarks=logs/metrics.jsonl`
 - `--quit-after-load`
+
+Useful shortcuts:
+
+- `Ctrl+L` or `F6` focuses the address bar
+- `Ctrl+R` or `F5` reloads
+- `Esc` stops loading
+- `Alt+Left` and `Alt+Right` navigate back/forward
+- `Ctrl+W` closes the window
 
 Relative paths passed on the command line are resolved from the current working directory. Relative paths in `config/settings.json` are resolved from the executable directory.
 

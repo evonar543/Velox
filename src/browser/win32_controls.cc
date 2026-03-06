@@ -45,6 +45,8 @@ LayoutRects ComputeLayout(const RECT& client_rect) {
   const int status_top = row_bottom + 8;
   const int progress_top = status_top + kStatusHeight + 8;
 
+  // The toolbar is split into three zones: brand + nav, address field, and
+  // compact status badges. Keeping the math flat makes resize behavior cheap.
   rects.brand = {kPadding, top, kPadding + kBrandWidth, row_bottom};
   rects.back = {rects.brand.right + kPadding, top, rects.brand.right + kPadding + kButtonWidth, row_bottom};
   rects.forward = {rects.back.right + kPadding, top, rects.back.right + kPadding + kButtonWidth, row_bottom};

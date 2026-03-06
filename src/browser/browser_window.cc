@@ -25,6 +25,9 @@ constexpr UINT kMessageLoadingState = WM_APP + 5;
 constexpr UINT kMessageLoadError = WM_APP + 6;
 constexpr UINT kMessageStatusChanged = WM_APP + 7;
 constexpr UINT kMessageLoadProgress = WM_APP + 8;
+constexpr UINT kMessageBrowserCommand = WM_APP + 9;
+constexpr int kMinWindowWidth = 960;
+constexpr int kMinWindowHeight = 720;
 
 constexpr COLORREF kToolbarColor = RGB(245, 247, 250);
 constexpr COLORREF kToolbarBorderColor = RGB(218, 224, 230);
@@ -168,6 +171,8 @@ void BrowserWindow::OnBrowserCreated(CefRefPtr<CefBrowser> browser) {
     std::scoped_lock lock(pending_mutex_);
     pending_browser_ = browser;
   }
+  // CEF can invoke callbacks off the native UI thread, so state changes are
+  // marshaled back through private window messages before touching controls.
   PostWindowMessage(kMessageBrowserCreated);
 }
 
@@ -237,6 +242,12 @@ void BrowserWindow::OnRendererMetric(const std::string& name, double value) {
     pending_status_text_ = status;
   }
   PostWindowMessage(kMessageStatusChanged);
+}
+
+void BrowserWindow::OnBrowserCommand(cef::BrowserCommand command) {
+  if (hwnd_ != nullptr) {
+    PostMessageW(hwnd_, kMessageBrowserCommand, static_cast<WPARAM>(command), 0);
+  }
 }
 
 LRESULT CALLBACK BrowserWindow::WindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
@@ -338,6 +349,12 @@ LRESULT BrowserWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
       ResizeBrowserHost();
       InvalidateRect(hwnd_, nullptr, FALSE);
       return 0;
+    case WM_GETMINMAXINFO: {
+      auto* minmax_info = reinterpret_cast<MINMAXINFO*>(lparam);
+      minmax_info->ptMinTrackSize.x = kMinWindowWidth;
+      minmax_info->ptMinTrackSize.y = kMinWindowHeight;
+      return 0;
+    }
     case WM_CLOSE:
       if (controller_.has_browser()) {
         if (!close_requested_) {
@@ -377,12 +394,17 @@ LRESULT BrowserWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
     case kMessageLoadProgress:
       HandleLoadProgressMessage();
       return 0;
+    case kMessageBrowserCommand:
+      HandleBrowserCommand(static_cast<cef::BrowserCommand>(wparam));
+      return 0;
   }
 
   return DefWindowProcW(hwnd_, message, wparam, lparam);
 }
 
 void BrowserWindow::CreateControls() {
+  // Native controls keep the shell startup path cheap while still letting us
+  // make the chrome feel intentional instead of placeholder-grade.
   brand_label_ = CreateWindowExW(0, L"STATIC", L"Velox", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, hwnd_,
                                  reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kBrandLabelId)), instance_, nullptr);
   back_button_ = CreateWindowExW(0, L"BUTTON", L"Back", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
@@ -435,6 +457,8 @@ void BrowserWindow::LayoutChildren() {
   GetClientRect(hwnd_, &client_rect);
   const auto layout = win32::ComputeLayout(client_rect);
 
+  // The toolbar layout is deterministic and allocation-free so resize work
+  // stays cheap while Chromium is busy painting below it.
   MoveWindow(brand_label_, layout.brand.left, layout.brand.top, layout.brand.right - layout.brand.left,
              layout.brand.bottom - layout.brand.top, TRUE);
   MoveWindow(back_button_, layout.back.left, layout.back.top, layout.back.right - layout.back.left, layout.back.bottom - layout.back.top, TRUE);
@@ -489,6 +513,15 @@ void BrowserWindow::NavigateFromAddressBar() {
   controller_.Navigate(url);
 }
 
+void BrowserWindow::FocusAddressBar() {
+  if (address_bar_ == nullptr) {
+    return;
+  }
+
+  SetFocus(address_bar_);
+  SendMessageW(address_bar_, EM_SETSEL, 0, -1);
+}
+
 void BrowserWindow::UpdateNavigationButtons() {
   EnableWindow(reload_button_, controller_.has_browser());
   EnableWindow(back_button_, controller_.can_go_back());
@@ -509,6 +542,7 @@ void BrowserWindow::CreateThemeResources() {
   font.lfHeight = -21;
   title_font_ = CreateFontIndirectW(&font);
 
+  // These GDI objects are created once and reused to avoid per-paint churn.
   toolbar_brush_ = CreateSolidBrush(kToolbarColor);
   window_brush_ = CreateSolidBrush(kWindowColor);
   address_brush_ = CreateSolidBrush(kWindowColor);
@@ -610,6 +644,8 @@ LRESULT BrowserWindow::HandleDrawItem(const DRAWITEMSTRUCT* draw_item) {
   const bool is_pressed = (draw_item->itemState & ODS_SELECTED) != 0;
   const bool is_disabled = (draw_item->itemState & ODS_DISABLED) != 0;
 
+  // Buttons and badges share one lightweight owner-draw path so we can style
+  // the chrome without adding another UI framework on top of Win32.
   COLORREF fill_color = kNavFillColor;
   COLORREF border_color = kNavBorderColor;
   COLORREF text_color = kPrimaryTextColor;
@@ -758,6 +794,8 @@ void BrowserWindow::HandleStatusMessage() {
     status.swap(pending_status_text_);
   }
 
+  // Renderer paint metrics and Chromium status text can arrive in bursts; the
+  // last message wins so the shell never blocks waiting on richer UI state.
   if (status.empty()) {
     if (!controller_.is_loading()) {
       SetStatusText(BuildDefaultStatusText());
@@ -783,6 +821,31 @@ void BrowserWindow::HandleLoadProgressMessage() {
     return;
   }
   UpdateProgressBar(progress_percent);
+}
+
+void BrowserWindow::HandleBrowserCommand(cef::BrowserCommand command) {
+  switch (command) {
+    case cef::BrowserCommand::kFocusAddressBar:
+      FocusAddressBar();
+      break;
+    case cef::BrowserCommand::kGoBack:
+      controller_.GoBack();
+      break;
+    case cef::BrowserCommand::kGoForward:
+      controller_.GoForward();
+      break;
+    case cef::BrowserCommand::kReload:
+      controller_.Reload();
+      break;
+    case cef::BrowserCommand::kStop:
+      controller_.Stop();
+      break;
+    case cef::BrowserCommand::kCloseWindow:
+      if (hwnd_ != nullptr) {
+        PostMessageW(hwnd_, WM_CLOSE, 0, 0);
+      }
+      break;
+  }
 }
 
 }  // namespace velox::browser

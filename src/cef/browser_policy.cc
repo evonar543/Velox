@@ -116,6 +116,8 @@ std::wstring SiteKey(std::wstring host) {
   const size_t last_label_length = host.size() - last_dot - 1;
   const size_t second_label_length = last_dot - second_last_dot - 1;
 
+  // This is a cheap eTLD+1 approximation so privacy policy decisions do not
+  // need a heavyweight public suffix dependency in the hot request path.
   if (last_label_length == 2 && second_label_length <= 3 && third_last_dot != std::wstring::npos) {
     return host.substr(third_last_dot + 1);
   }
@@ -327,6 +329,8 @@ CefResourceRequestHandler::ReturnValue BrowserPolicy::OnBeforeResourceLoad(
   const auto resource_type = request->GetResourceType();
   if (settings_.privacy.strip_tracking_query_parameters &&
       (resource_type == RT_MAIN_FRAME || resource_type == RT_SUB_FRAME)) {
+    // Only rewrite top-level navigations so subresource URLs stay stable for
+    // sites that key caches or signatures off exact request strings.
     if (const auto stripped = StripTrackingParameters(request->GetURL().ToWString()); stripped.has_value()) {
       request->SetURL(*stripped);
       platform::LogTrace("Stripped tracking parameters from navigation request.");
@@ -452,11 +456,15 @@ void BrowserPolicy::ApplyReferrerPolicy(CefRefPtr<CefRequest> request) const {
 
   const auto resource_type = request->GetResourceType();
   if (resource_type == RT_MAIN_FRAME || resource_type == RT_SUB_FRAME) {
+    // Keep enough origin context for normal navigation flows while dropping the
+    // path/query details that leak the most browsing intent cross-site.
     const std::wstring origin = ExtractOrigin(referrer_url);
     request->SetReferrer(origin, REFERRER_POLICY_ORIGIN_ONLY_ON_TRANSITION_CROSS_ORIGIN);
     return;
   }
 
+  // For third-party subresources there is rarely any upside to exposing a
+  // referrer at all, so we take the stricter option here.
   request->SetReferrer(std::wstring{}, REFERRER_POLICY_NO_REFERRER);
 }
 
@@ -469,6 +477,8 @@ void BrowserPolicy::ApplyContextPreferences(CefRefPtr<CefRequestContext> request
   }
 
   if (settings_.privacy.block_webrtc_non_proxied_udp) {
+    // This keeps WebRTC from bypassing the browser's normal network posture and
+    // exposing local interfaces through direct UDP candidates.
     ApplyStringPreference(request_context, "webrtc.ip_handling_policy", "disable_non_proxied_udp");
     ApplyBooleanPreference(request_context, "webrtc.multiple_routes_enabled", false);
     ApplyBooleanPreference(request_context, "webrtc.nonproxied_udp_enabled", false);
