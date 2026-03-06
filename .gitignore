@@ -1,0 +1,15 @@
+build/
+dumps/
+
+*.dmp
+*.log
+
+.vs/
+*.VC.db
+*.VC.opendb
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+CMakeUserPresets.json

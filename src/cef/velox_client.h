@@ -1,0 +1,86 @@
+#pragma once
+
+#include <string>
+
+#include "include/cef_client.h"
+#include "profiling/metrics_recorder.h"
+
+namespace velox::cef {
+
+class BrowserEventDelegate {
+ public:
+  virtual void OnBrowserCreated(CefRefPtr<CefBrowser> browser) = 0;
+  virtual void OnBrowserClosed() = 0;
+  virtual void OnAddressChanged(const std::wstring& url) = 0;
+  virtual void OnTitleChanged(const std::wstring& title) = 0;
+  virtual void OnLoadingStateChange(bool is_loading, bool can_go_back, bool can_go_forward) = 0;
+  virtual void OnLoadError(const std::wstring& failed_url, const std::wstring& error_text) = 0;
+  virtual void OnRendererMetric(const std::string& name, double value) = 0;
+
+ protected:
+  ~BrowserEventDelegate() = default;
+};
+
+class VeloxClient : public CefClient,
+                    public CefDisplayHandler,
+                    public CefLifeSpanHandler,
+                    public CefLoadHandler,
+                    public CefRequestHandler {
+ public:
+  VeloxClient(BrowserEventDelegate* delegate, profiling::MetricsRecorder* metrics);
+
+  CefRefPtr<CefDisplayHandler> GetDisplayHandler() override;
+  CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override;
+  CefRefPtr<CefLoadHandler> GetLoadHandler() override;
+  CefRefPtr<CefRequestHandler> GetRequestHandler() override;
+
+  void OnAfterCreated(CefRefPtr<CefBrowser> browser) override;
+  bool OnBeforePopup(CefRefPtr<CefBrowser> browser,
+                     CefRefPtr<CefFrame> frame,
+                     int popup_id,
+                     const CefString& target_url,
+                     const CefString& target_frame_name,
+                     CefLifeSpanHandler::WindowOpenDisposition target_disposition,
+                     bool user_gesture,
+                     const CefPopupFeatures& popupFeatures,
+                     CefWindowInfo& windowInfo,
+                     CefRefPtr<CefClient>& client,
+                     CefBrowserSettings& settings,
+                     CefRefPtr<CefDictionaryValue>& extra_info,
+                     bool* no_javascript_access) override;
+  bool DoClose(CefRefPtr<CefBrowser> browser) override;
+  void OnBeforeClose(CefRefPtr<CefBrowser> browser) override;
+  void OnAddressChange(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, const CefString& url) override;
+  void OnTitleChange(CefRefPtr<CefBrowser> browser, const CefString& title) override;
+  void OnLoadingStateChange(CefRefPtr<CefBrowser> browser, bool is_loading, bool can_go_back, bool can_go_forward) override;
+  void OnLoadStart(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, TransitionType transition_type) override;
+  void OnLoadEnd(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, int http_status_code) override;
+  void OnLoadError(CefRefPtr<CefBrowser> browser,
+                   CefRefPtr<CefFrame> frame,
+                   ErrorCode error_code,
+                   const CefString& error_text,
+                   const CefString& failed_url) override;
+  bool OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
+                      CefRefPtr<CefFrame> frame,
+                      CefRefPtr<CefRequest> request,
+                      bool user_gesture,
+                      bool is_redirect) override;
+  bool OnOpenURLFromTab(CefRefPtr<CefBrowser> browser,
+                        CefRefPtr<CefFrame> frame,
+                        const CefString& target_url,
+                        CefRequestHandler::WindowOpenDisposition target_disposition,
+                        bool user_gesture) override;
+  bool OnProcessMessageReceived(CefRefPtr<CefBrowser> browser,
+                                CefRefPtr<CefFrame> frame,
+                                CefProcessId source_process,
+                                CefRefPtr<CefProcessMessage> message) override;
+
+ private:
+  BrowserEventDelegate* delegate_ = nullptr;
+  profiling::MetricsRecorder* metrics_ = nullptr;
+  bool first_main_frame_load_seen_ = false;
+
+  IMPLEMENT_REFCOUNTING(VeloxClient);
+};
+
+}  // namespace velox::cef

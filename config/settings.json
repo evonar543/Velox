@@ -1,0 +1,33 @@
+{
+  "startup_url": "https://example.com",
+  "window": {
+    "width": 1280,
+    "height": 800
+  },
+  "paths": {
+    "profile_dir": "profile",
+    "cache_dir": "profile/cache",
+    "log_dir": "logs"
+  },
+  "logging": {
+    "level": "info"
+  },
+  "benchmarking": {
+    "enabled": true,
+    "output": "logs/metrics.jsonl"
+  },
+  "privacy": {
+    "do_not_track": true,
+    "global_privacy_control": true,
+    "block_third_party_cookies": true,
+    "strip_tracking_query_parameters": true,
+    "disable_password_manager": true,
+    "block_external_protocols": true
+  },
+  "blocking": {
+    "enabled": true,
+    "block_ads": true,
+    "block_trackers": true
+  },
+  "incognito_default": false
+}
