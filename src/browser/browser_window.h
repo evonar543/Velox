@@ -118,6 +118,7 @@ class BrowserWindow : public cef::BrowserEventDelegate {
   std::wstring pending_status_text_;
   int pending_progress_percent_ = 0;
   std::wstring status_text_;
+  std::wstring current_host_;
   int load_progress_percent_ = 0;
 
   bool close_requested_ = false;

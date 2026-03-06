@@ -17,7 +17,7 @@ constexpr int kPrivacyBadgeId = 1008;
 constexpr int kStatusLabelId = 1009;
 constexpr int kProgressBarId = 1010;
 constexpr WORD kAddressEnterNotification = 0x7010;
-constexpr int kToolbarHeight = 82;
+constexpr int kToolbarHeight = 92;
 
 struct LayoutRects {
   RECT brand{};

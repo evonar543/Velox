@@ -5,17 +5,23 @@
 #include <algorithm>
 #include <cwctype>
 
+#include "include/cef_parser.h"
+
 namespace velox::browser::win32 {
 
 namespace {
 
-constexpr int kPadding = 12;
-constexpr int kButtonWidth = 44;
-constexpr int kControlHeight = 32;
-constexpr int kBrandWidth = 96;
-constexpr int kBadgeWidth = 120;
-constexpr int kStatusHeight = 16;
-constexpr int kProgressHeight = 4;
+constexpr int kPadding = 14;
+constexpr int kBackButtonWidth = 62;
+constexpr int kForwardButtonWidth = 62;
+constexpr int kReloadButtonWidth = 76;
+constexpr int kStopButtonWidth = 58;
+constexpr int kControlHeight = 36;
+constexpr int kBrandWidth = 108;
+constexpr int kBadgeWidth = 96;
+constexpr int kStatusHeight = 18;
+constexpr int kProgressHeight = 3;
+constexpr wchar_t kSearchUrlPrefix[] = L"https://duckduckgo.com/?q=";
 
 LRESULT CALLBACK AddressBarSubclassProc(HWND window,
                                         UINT message,
@@ -42,16 +48,16 @@ LayoutRects ComputeLayout(const RECT& client_rect) {
   const int width = client_rect.right - client_rect.left;
   const int top = kPadding;
   const int row_bottom = top + kControlHeight;
-  const int status_top = row_bottom + 8;
+  const int status_top = row_bottom + 10;
   const int progress_top = status_top + kStatusHeight + 8;
 
   // The toolbar is split into three zones: brand + nav, address field, and
   // compact status badges. Keeping the math flat makes resize behavior cheap.
   rects.brand = {kPadding, top, kPadding + kBrandWidth, row_bottom};
-  rects.back = {rects.brand.right + kPadding, top, rects.brand.right + kPadding + kButtonWidth, row_bottom};
-  rects.forward = {rects.back.right + kPadding, top, rects.back.right + kPadding + kButtonWidth, row_bottom};
-  rects.reload = {rects.forward.right + kPadding, top, rects.forward.right + kPadding + kButtonWidth, row_bottom};
-  rects.stop = {rects.reload.right + kPadding, top, rects.reload.right + kPadding + kButtonWidth, row_bottom};
+  rects.back = {rects.brand.right + kPadding, top, rects.brand.right + kPadding + kBackButtonWidth, row_bottom};
+  rects.forward = {rects.back.right + kPadding, top, rects.back.right + kPadding + kForwardButtonWidth, row_bottom};
+  rects.reload = {rects.forward.right + kPadding, top, rects.forward.right + kPadding + kReloadButtonWidth, row_bottom};
+  rects.stop = {rects.reload.right + kPadding, top, rects.reload.right + kPadding + kStopButtonWidth, row_bottom};
 
   rects.privacy = {width - kPadding - kBadgeWidth, top, width - kPadding, row_bottom};
   rects.profile = {rects.privacy.left - kPadding - kBadgeWidth, top, rects.privacy.left - kPadding, row_bottom};
@@ -77,10 +83,23 @@ std::wstring NormalizeAddressInput(std::wstring value) {
   if (value.empty()) {
     return value;
   }
-  if (value.find(L"://") == std::wstring::npos) {
+
+  const auto has_whitespace = std::find_if(value.begin(), value.end(), [](wchar_t ch) { return iswspace(ch); }) != value.end();
+  const bool has_scheme = value.find(L"://") != std::wstring::npos || value.rfind(L"about:", 0) == 0 ||
+                          value.rfind(L"file:", 0) == 0 || value.rfind(L"data:", 0) == 0;
+  if (has_scheme) {
+    return value;
+  }
+
+  const bool looks_like_host =
+      value.find(L'.') != std::wstring::npos || value.find(L':') != std::wstring::npos || value == L"localhost";
+  if (!has_whitespace && looks_like_host) {
     return L"https://" + value;
   }
-  return value;
+
+  // Treat plain text as a search query so the omnibox behaves like a browser,
+  // not like a strict URL field.
+  return std::wstring(kSearchUrlPrefix) + CefURIEncode(value, true).ToWString();
 }
 
 }  // namespace velox::browser::win32

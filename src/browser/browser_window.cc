@@ -8,6 +8,7 @@
 
 #include "browser/win32_controls.h"
 #include "cef/request_context_factory.h"
+#include "include/cef_parser.h"
 #include "platform/win/file_utils.h"
 #include "platform/win/logger.h"
 
@@ -70,6 +71,17 @@ std::wstring FormatRendererStatus(std::string_view name, double value) {
     return stream.str();
   }
   return {};
+}
+
+std::wstring ExtractDisplayHost(const std::wstring& url) {
+  CefURLParts parts;
+  if (!CefParseURL(url, parts)) {
+    return {};
+  }
+  if (parts.host.str == nullptr || parts.host.length == 0) {
+    return {};
+  }
+  return CefString(parts.host.str, parts.host.length).ToWString();
 }
 
 }  // namespace
@@ -409,7 +421,7 @@ void BrowserWindow::CreateControls() {
                                  reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kBrandLabelId)), instance_, nullptr);
   back_button_ = CreateWindowExW(0, L"BUTTON", L"Back", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
                                  reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kBackButtonId)), instance_, nullptr);
-  forward_button_ = CreateWindowExW(0, L"BUTTON", L"Forward", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
+  forward_button_ = CreateWindowExW(0, L"BUTTON", L"Next", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
                                     reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kForwardButtonId)), instance_, nullptr);
   reload_button_ = CreateWindowExW(0, L"BUTTON", L"Reload", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
                                    reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kReloadButtonId)), instance_, nullptr);
@@ -531,7 +543,7 @@ void BrowserWindow::UpdateNavigationButtons() {
 
 void BrowserWindow::CreateThemeResources() {
   LOGFONTW font{};
-  font.lfHeight = -16;
+  font.lfHeight = -15;
   font.lfWeight = FW_NORMAL;
   wcscpy_s(font.lfFaceName, L"Segoe UI");
   ui_font_ = CreateFontIndirectW(&font);
@@ -539,7 +551,7 @@ void BrowserWindow::CreateThemeResources() {
   font.lfWeight = FW_SEMIBOLD;
   ui_font_bold_ = CreateFontIndirectW(&font);
 
-  font.lfHeight = -21;
+  font.lfHeight = -22;
   title_font_ = CreateFontIndirectW(&font);
 
   // These GDI objects are created once and reused to avoid per-paint churn.
@@ -616,20 +628,18 @@ void BrowserWindow::UpdateProgressBar(int progress_percent) {
 }
 
 std::wstring BrowserWindow::BuildDefaultStatusText() const {
-  std::wstring status = L"Ready";
-  status += L" | ";
-  status += settings_.incognito_default ? L"Incognito privacy" : L"Privacy shield on";
-  status += L" | ";
-  status += app::DescribeRuntimeProfile(runtime_profile_);
-  return status;
+  if (!current_host_.empty()) {
+    return L"Viewing " + current_host_;
+  }
+  return settings_.incognito_default ? L"Incognito session ready" : L"Privacy shield active";
 }
 
 std::wstring BrowserWindow::BuildPrivacyBadgeText() const {
-  return settings_.incognito_default ? L"Incognito" : L"Shield on";
+  return settings_.incognito_default ? L"Incognito" : L"Shield";
 }
 
 std::wstring BrowserWindow::BuildProfileBadgeText() const {
-  return app::RuntimeTierToLabel(runtime_profile_.tier) + L" mode";
+  return app::RuntimeTierToLabel(runtime_profile_.tier);
 }
 
 LRESULT BrowserWindow::HandleDrawItem(const DRAWITEMSTRUCT* draw_item) {
@@ -728,7 +738,11 @@ void BrowserWindow::HandleAddressChangedMessage() {
     std::scoped_lock lock(pending_mutex_);
     address.swap(pending_address_);
   }
+  current_host_ = ExtractDisplayHost(address);
   SetAddressBarText(address);
+  if (!controller_.is_loading()) {
+    SetStatusText(BuildDefaultStatusText());
+  }
 }
 
 void BrowserWindow::HandleTitleChangedMessage() {

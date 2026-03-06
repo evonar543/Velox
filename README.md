@@ -68,6 +68,7 @@ Useful shortcuts:
 - `Ctrl+W` closes the window
 
 Relative paths passed on the command line are resolved from the current working directory. Relative paths in `config/settings.json` are resolved from the executable directory.
+The portable build is expected to launch correctly even if the current working directory is not the executable folder.
 
 ## Settings Schema
 

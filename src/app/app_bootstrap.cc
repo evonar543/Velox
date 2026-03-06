@@ -113,6 +113,9 @@ bool AppBootstrap::InitializeSettings() {
 }
 
 bool AppBootstrap::InitializeCef(const CefMainArgs& main_args) {
+  const std::filesystem::path executable_path = platform::GetExecutablePath();
+  const std::filesystem::path base_dir = executable_path.parent_path();
+
   CefSettings cef_settings;
   // Let CEF own its UI thread so Chromium work stays responsive even if the
   // host window is busy processing native messages.
@@ -123,6 +126,11 @@ bool AppBootstrap::InitializeCef(const CefMainArgs& main_args) {
   cef_settings.persist_session_cookies = false;
   cef_settings.log_severity = ToCefLogSeverity(settings_.log_level);
   cef_app_->SetRuntimeProfile(runtime_profile_);
+  // Make the packaged app self-contained so it can be launched from any
+  // working directory without CEF guessing where resources live.
+  CefString(&cef_settings.browser_subprocess_path) = executable_path.wstring();
+  CefString(&cef_settings.resources_dir_path) = base_dir.wstring();
+  CefString(&cef_settings.locales_dir_path) = (base_dir / L"locales").wstring();
   platform::EnsureDirectory(settings_.paths.profile_dir);
   platform::EnsureDirectory(settings_.paths.cache_dir);
   CefString(&cef_settings.root_cache_path) = settings_.paths.profile_dir.wstring();
