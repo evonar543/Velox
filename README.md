@@ -56,6 +56,16 @@ cmake --build build --config Release
 
 The resulting binary will be in `build/Release/velox.exe` with the required CEF runtime files and `config/settings.json` copied beside it.
 
+## Package A Release
+
+Once the Release build is ready, create a clean portable zip with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\package_release.ps1
+```
+
+That script stages a minimal runtime under `dist/velox-v<version>-windows-x64/` and creates a matching zip beside it. The packaged build is meant to be unzip-and-run without needing the original build tree.
+
 ## Run
 
 ```powershell
