@@ -13,16 +13,21 @@ namespace velox::browser::win32 {
 namespace {
 
 constexpr int kPadding = 14;
-constexpr int kBackButtonWidth = 62;
-constexpr int kForwardButtonWidth = 62;
-constexpr int kReloadButtonWidth = 76;
-constexpr int kStopButtonWidth = 58;
+constexpr int kBackButtonWidth = 54;
+constexpr int kForwardButtonWidth = 54;
+constexpr int kReloadButtonWidth = 72;
+constexpr int kStopButtonWidth = 56;
 constexpr int kHomeButtonWidth = 62;
 constexpr int kControlHeight = 36;
-constexpr int kBrandWidth = 108;
+constexpr int kBrandWidth = 96;
 constexpr int kBadgeWidth = 96;
 constexpr int kStatusHeight = 18;
-constexpr int kProgressHeight = 3;
+constexpr int kProgressHeight = 4;
+constexpr int kGroupRowHeight = 30;
+constexpr int kTabsRowHeight = 36;
+constexpr int kToolbarTop = 92;
+constexpr int kAddressShellHeight = 42;
+constexpr int kNewTabButtonWidth = 42;
 
 std::wstring BuildSearchUrl(std::wstring_view query, std::wstring_view search_url_template) {
   const std::wstring encoded_query = CefURIEncode(std::wstring(query), true).ToWString();
@@ -59,30 +64,38 @@ LayoutRects ComputeLayout(const RECT& client_rect) {
   LayoutRects rects;
 
   const int width = client_rect.right - client_rect.left;
-  const int top = kPadding;
-  const int row_bottom = top + kControlHeight;
-  const int status_top = row_bottom + 10;
+  const int group_top = kPadding;
+  const int tabs_top = group_top + kGroupRowHeight + 10;
+  const int controls_top = kToolbarTop;
+  const int controls_bottom = controls_top + kControlHeight;
+  const int status_top = controls_bottom + 10;
   const int progress_top = status_top + kStatusHeight + 8;
 
-  // The toolbar is split into three zones: brand + nav, address field, and
-  // compact status badges. Keeping the math flat makes resize behavior cheap.
-  rects.brand = {kPadding, top, kPadding + kBrandWidth, row_bottom};
-  rects.back = {rects.brand.right + kPadding, top, rects.brand.right + kPadding + kBackButtonWidth, row_bottom};
-  rects.forward = {rects.back.right + kPadding, top, rects.back.right + kPadding + kForwardButtonWidth, row_bottom};
-  rects.reload = {rects.forward.right + kPadding, top, rects.forward.right + kPadding + kReloadButtonWidth, row_bottom};
-  rects.stop = {rects.reload.right + kPadding, top, rects.reload.right + kPadding + kStopButtonWidth, row_bottom};
-  rects.home = {rects.stop.right + kPadding, top, rects.stop.right + kPadding + kHomeButtonWidth, row_bottom};
+  rects.groups_strip = {kPadding, group_top, width - kPadding - kNewTabButtonWidth - kPadding, group_top + kGroupRowHeight};
+  rects.new_tab_button = {width - kPadding - kNewTabButtonWidth, group_top, width - kPadding, group_top + kGroupRowHeight};
+  rects.tabs_strip = {kPadding, tabs_top, width - kPadding, tabs_top + kTabsRowHeight};
 
-  rects.privacy = {width - kPadding - kBadgeWidth, top, width - kPadding, row_bottom};
-  rects.profile = {rects.privacy.left - kPadding - kBadgeWidth, top, rects.privacy.left - kPadding, row_bottom};
+  rects.brand = {kPadding, controls_top, kPadding + kBrandWidth, controls_bottom};
+  rects.back = {rects.brand.right + kPadding, controls_top, rects.brand.right + kPadding + kBackButtonWidth, controls_bottom};
+  rects.forward = {rects.back.right + 10, controls_top, rects.back.right + 10 + kForwardButtonWidth, controls_bottom};
+  rects.reload = {rects.forward.right + 10, controls_top, rects.forward.right + 10 + kReloadButtonWidth, controls_bottom};
+  rects.stop = {rects.reload.right + 10, controls_top, rects.reload.right + 10 + kStopButtonWidth, controls_bottom};
+  rects.home = {rects.stop.right + 10, controls_top, rects.stop.right + 10 + kHomeButtonWidth, controls_bottom};
 
-  const LONG address_left = rects.home.right + kPadding;
-  const LONG address_right = std::max<LONG>(address_left + 160, rects.profile.left - kPadding);
-  rects.address = {address_left, top, address_right, row_bottom};
+  rects.privacy = {width - kPadding - kBadgeWidth, controls_top, width - kPadding, controls_bottom};
+  rects.profile = {rects.privacy.left - 10 - kBadgeWidth, controls_top, rects.privacy.left - 10, controls_bottom};
+
+  const LONG address_shell_left = rects.home.right + 12;
+  const LONG address_shell_right = std::max<LONG>(address_shell_left + 220, rects.profile.left - 12);
+  rects.address_shell = {address_shell_left, controls_top - 3, address_shell_right, controls_top - 3 + kAddressShellHeight};
+  rects.address = {rects.address_shell.left + 14,
+                   rects.address_shell.top + 8,
+                   rects.address_shell.right - 14,
+                   rects.address_shell.bottom - 8};
+
   rects.status = {kPadding, status_top, width - kPadding, status_top + kStatusHeight};
   rects.progress = {kPadding, progress_top, width - kPadding, progress_top + kProgressHeight};
   rects.browser = {0, kToolbarHeight, width, client_rect.bottom};
-
   return rects;
 }
 
@@ -111,8 +124,6 @@ std::wstring NormalizeAddressInput(std::wstring value, std::wstring_view search_
     return L"https://" + value;
   }
 
-  // Treat plain text as a search query so the omnibox behaves like a browser,
-  // not like a strict URL field.
   return BuildSearchUrl(value, search_url_template);
 }
 

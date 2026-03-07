@@ -3,6 +3,7 @@
 #include <string>
 
 #include "include/cef_client.h"
+#include "include/cef_download_handler.h"
 #include "include/cef_keyboard_handler.h"
 #include "include/cef_permission_handler.h"
 #include "profiling/metrics_recorder.h"
@@ -11,24 +12,39 @@ namespace velox::cef {
 
 enum class BrowserCommand {
   kFocusAddressBar,
+  kNewTab,
+  kNextTab,
+  kPreviousTab,
   kGoBack,
   kGoForward,
   kReload,
   kStop,
-  kCloseWindow,
+  kCloseTabOrWindow,
+  kToggleHistory,
+  kToggleDownloads,
+  kToggleSettings,
 };
 
 class BrowserEventDelegate {
  public:
-  virtual void OnBrowserCreated(CefRefPtr<CefBrowser> browser) = 0;
-  virtual void OnBrowserClosed() = 0;
-  virtual void OnAddressChanged(const std::wstring& url) = 0;
-  virtual void OnTitleChanged(const std::wstring& title) = 0;
-  virtual void OnLoadingStateChange(bool is_loading, bool can_go_back, bool can_go_forward) = 0;
-  virtual void OnLoadError(const std::wstring& failed_url, const std::wstring& error_text) = 0;
-  virtual void OnStatusMessage(const std::wstring& status) = 0;
-  virtual void OnLoadProgress(double progress) = 0;
-  virtual void OnRendererMetric(const std::string& name, double value) = 0;
+  virtual void OnBrowserCreated(int tab_id, CefRefPtr<CefBrowser> browser) = 0;
+  virtual void OnBrowserClosed(int tab_id) = 0;
+  virtual void OnAddressChanged(int tab_id, const std::wstring& url) = 0;
+  virtual void OnTitleChanged(int tab_id, const std::wstring& title) = 0;
+  virtual void OnLoadingStateChange(int tab_id, bool is_loading, bool can_go_back, bool can_go_forward) = 0;
+  virtual void OnLoadError(int tab_id, const std::wstring& failed_url, const std::wstring& error_text) = 0;
+  virtual void OnStatusMessage(int tab_id, const std::wstring& status) = 0;
+  virtual void OnLoadProgress(int tab_id, double progress) = 0;
+  virtual void OnRendererMetric(int tab_id, const std::string& name, double value) = 0;
+  virtual void OnOpenUrlInNewTab(const std::wstring& url, bool activate) = 0;
+  virtual std::wstring GetDownloadTargetPath(int tab_id, const std::wstring& suggested_name) = 0;
+  virtual void OnDownloadCreated(int tab_id, int download_id, const std::wstring& file_name, const std::wstring& full_path) = 0;
+  virtual void OnDownloadUpdated(int tab_id,
+                                 int download_id,
+                                 int percent_complete,
+                                 bool is_complete,
+                                 bool is_canceled,
+                                 const std::wstring& status_text) = 0;
   virtual void OnBrowserCommand(BrowserCommand command) = 0;
 
  protected:
@@ -40,15 +56,17 @@ class VeloxClient : public CefClient,
                     public CefKeyboardHandler,
                     public CefLifeSpanHandler,
                     public CefLoadHandler,
+                    public CefDownloadHandler,
                     public CefPermissionHandler,
                     public CefRequestHandler {
  public:
-  VeloxClient(BrowserEventDelegate* delegate, profiling::MetricsRecorder* metrics);
+  VeloxClient(int tab_id, BrowserEventDelegate* delegate, profiling::MetricsRecorder* metrics);
 
   CefRefPtr<CefDisplayHandler> GetDisplayHandler() override;
   CefRefPtr<CefKeyboardHandler> GetKeyboardHandler() override;
   CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override;
   CefRefPtr<CefLoadHandler> GetLoadHandler() override;
+  CefRefPtr<CefDownloadHandler> GetDownloadHandler() override;
   CefRefPtr<CefPermissionHandler> GetPermissionHandler() override;
   CefRefPtr<CefRequestHandler> GetRequestHandler() override;
 
@@ -84,6 +102,13 @@ class VeloxClient : public CefClient,
                    ErrorCode error_code,
                    const CefString& error_text,
                    const CefString& failed_url) override;
+  bool OnBeforeDownload(CefRefPtr<CefBrowser> browser,
+                        CefRefPtr<CefDownloadItem> download_item,
+                        const CefString& suggested_name,
+                        CefRefPtr<CefBeforeDownloadCallback> callback) override;
+  void OnDownloadUpdated(CefRefPtr<CefBrowser> browser,
+                         CefRefPtr<CefDownloadItem> download_item,
+                         CefRefPtr<CefDownloadItemCallback> callback) override;
   bool OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
                       CefRefPtr<CefFrame> frame,
                       CefRefPtr<CefRequest> request,
@@ -115,6 +140,7 @@ class VeloxClient : public CefClient,
                                 std::string_view permission_name,
                                 const CefString& requesting_origin) const;
 
+  int tab_id_ = 0;
   BrowserEventDelegate* delegate_ = nullptr;
   profiling::MetricsRecorder* metrics_ = nullptr;
   bool first_main_frame_load_seen_ = false;

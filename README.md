@@ -1,16 +1,22 @@
 # Velox
 
-Velox is a minimal Chromium Embedded Framework browser shell for Windows. It is intentionally small: one window, one tab, real Chromium rendering, measurable performance hooks, and just enough native UI to navigate arbitrary sites.
+Velox is a minimal Chromium Embedded Framework browser shell for Windows. It stays intentionally lean: one window, real Chromium rendering, measurable performance hooks, and a compact custom chrome built around fast navigation instead of feature sprawl.
 
 ## Features
 
 - Real Chromium-based rendering through CEF
-- Native Win32 host window with address bar and navigation buttons
-- Polished native toolbar with home button, runtime/privacy badges, status text, and load progress
+- Native host window with grouped tabs, a custom-painted tab strip, and navigation controls
+- Polished custom chrome with a styled omnibox shell, home button, runtime/privacy badges, a quick settings popover, status text, and load progress
+- Multi-tab browsing with group accents for Focus, Build, and Chill workflows
+- Drag-to-reorder tabs without spawning extra windows
+- Right-side library panel for settings, history, and downloads
 - Multi-process startup via `CefExecuteProcess` and `CefInitialize`
 - Auto-tuned runtime profile that scales Chromium process limits to the current machine
 - Aggressive browser-shell tuning via Chromium command-line switches for lower idle work
 - Omnibox-style address field that opens URLs directly and sends plain text to a configurable search engine
+- Quick search-engine switching between Google, DuckDuckGo, Bing, and Startpage, with the choice saved under the user profile
+- Local history persistence under the profile directory
+- Download capture with per-session progress tracking and automatic save targets under the profile downloads folder
 - Startup cache budgeting that trims oversized cache directories before Chromium starts
 - Lightweight predictive warmup that remembers hot hosts and primes DNS for faster repeat visits
 - JSON-backed settings
@@ -65,10 +71,15 @@ Useful flags:
 Useful shortcuts:
 
 - `Ctrl+L` or `F6` focuses the address bar
+- `Ctrl+T` opens a new tab
+- `Ctrl+Tab` and `Ctrl+Shift+Tab` switch tabs
+- `Ctrl+H` toggles the history panel
+- `Ctrl+J` toggles the downloads panel
+- `Ctrl+,` toggles the settings panel
 - `Ctrl+R` or `F5` reloads
 - `Esc` stops loading
 - `Alt+Left` and `Alt+Right` navigate back/forward
-- `Ctrl+W` closes the window
+- `Ctrl+W` closes the active tab, or the window if only one tab remains
 
 Relative paths passed on the command line are resolved from the current working directory. Relative paths in `config/settings.json` are resolved from the executable directory.
 The portable build is expected to launch correctly even if the current working directory is not the executable folder.
@@ -139,13 +150,15 @@ Notes:
 - The native Win32 shell creates a child `CefBrowser` window for page rendering.
 - The Win32 shell keeps the UI cheap: owner-drawn buttons, common-controls progress bar, and direct layout without any extra widget framework.
 - The omnibox decides between URL navigation and search queries locally, then expands search terms through the configured search template.
+- The chrome reserves a right-side library panel for settings, history, and download state instead of opening extra native windows.
+- The profile badge and keyboard shortcuts open custom in-app surfaces for changing the search provider, reviewing recent history, and checking downloads without leaving the current page.
 - The renderer process injects a tiny paint observer that reports `first-paint` and `first-contentful-paint` back to the browser process via `CefProcessMessage`.
 
 ## Known Limitations
 
-- Single-tab only
+- Tabs are grouped visually, but groups are still fixed presets instead of fully custom user-named groups
 - No Windows sandbox in v1
-- No downloads manager
+- Downloads currently auto-save to the profile downloads folder instead of prompting for a location
 - The built-in blocker uses a curated hostname/pattern list, not a full EasyList-scale rules engine yet
 - Predictive warmup currently primes DNS only; it does not keep hidden live pages or speculative renderers around
 - No custom networking stack or scheme handlers yet
@@ -155,7 +168,8 @@ Notes:
 
 ## Roadmap
 
-1. Add a tab strip and tab model with isolated request contexts.
+1. Move grouped tabs toward isolated request contexts and richer session restore.
 2. Introduce Windows sandbox support and a dedicated helper subprocess if needed.
-3. Add downloads with progress UI and safe file handling.
+3. Expand downloads into a fuller manager with pause/resume, open-folder actions, and save prompts.
 4. Add custom networking hooks for interception, metrics, and policy controls.
+5. Add richer settings, history search, and bookmarks without bloating the shell.

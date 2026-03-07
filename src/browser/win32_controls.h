@@ -18,15 +18,19 @@ constexpr int kPrivacyBadgeId = 1009;
 constexpr int kStatusLabelId = 1010;
 constexpr int kProgressBarId = 1011;
 constexpr WORD kAddressEnterNotification = 0x7010;
-constexpr int kToolbarHeight = 92;
+constexpr int kToolbarHeight = 168;
 
 struct LayoutRects {
+  RECT groups_strip{};
+  RECT tabs_strip{};
+  RECT new_tab_button{};
   RECT brand{};
   RECT back{};
   RECT forward{};
   RECT reload{};
   RECT stop{};
   RECT home{};
+  RECT address_shell{};
   RECT address{};
   RECT profile{};
   RECT privacy{};

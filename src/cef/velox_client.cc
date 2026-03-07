@@ -59,8 +59,8 @@ std::string DescribePermissionTypes(uint32_t requested_permissions) {
 
 }  // namespace
 
-VeloxClient::VeloxClient(BrowserEventDelegate* delegate, profiling::MetricsRecorder* metrics)
-    : delegate_(delegate), metrics_(metrics) {}
+VeloxClient::VeloxClient(int tab_id, BrowserEventDelegate* delegate, profiling::MetricsRecorder* metrics)
+    : tab_id_(tab_id), delegate_(delegate), metrics_(metrics) {}
 
 CefRefPtr<CefDisplayHandler> VeloxClient::GetDisplayHandler() {
   return this;
@@ -78,6 +78,10 @@ CefRefPtr<CefLoadHandler> VeloxClient::GetLoadHandler() {
   return this;
 }
 
+CefRefPtr<CefDownloadHandler> VeloxClient::GetDownloadHandler() {
+  return this;
+}
+
 CefRefPtr<CefPermissionHandler> VeloxClient::GetPermissionHandler() {
   return this;
 }
@@ -92,7 +96,7 @@ void VeloxClient::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
     metrics_->RecordMemory("browser.created");
   }
   if (delegate_ != nullptr) {
-    delegate_->OnBrowserCreated(browser);
+    delegate_->OnBrowserCreated(tab_id_, browser);
   }
 }
 
@@ -121,10 +125,10 @@ bool VeloxClient::OnBeforePopup(CefRefPtr<CefBrowser> browser,
   (void)extra_info;
   (void)no_javascript_access;
 
-  if (browser != nullptr && !target_url.empty()) {
-    browser->GetMainFrame()->LoadURL(target_url);
+  if (delegate_ != nullptr && !target_url.empty()) {
+    delegate_->OnOpenUrlInNewTab(target_url.ToWString(), true);
     if (metrics_ != nullptr) {
-      metrics_->Mark("popup.collapsed_to_current_tab");
+      metrics_->Mark("popup.opened_in_new_tab");
     }
   }
   return true;
@@ -138,35 +142,35 @@ bool VeloxClient::DoClose(CefRefPtr<CefBrowser> browser) {
 void VeloxClient::OnBeforeClose(CefRefPtr<CefBrowser> browser) {
   (void)browser;
   if (delegate_ != nullptr) {
-    delegate_->OnBrowserClosed();
+    delegate_->OnBrowserClosed(tab_id_);
   }
 }
 
 void VeloxClient::OnAddressChange(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, const CefString& url) {
   (void)browser;
   if (delegate_ != nullptr && frame != nullptr && frame->IsMain()) {
-    delegate_->OnAddressChanged(url.ToWString());
+    delegate_->OnAddressChanged(tab_id_, url.ToWString());
   }
 }
 
 void VeloxClient::OnTitleChange(CefRefPtr<CefBrowser> browser, const CefString& title) {
   (void)browser;
   if (delegate_ != nullptr) {
-    delegate_->OnTitleChanged(title.ToWString());
+    delegate_->OnTitleChanged(tab_id_, title.ToWString());
   }
 }
 
 void VeloxClient::OnStatusMessage(CefRefPtr<CefBrowser> browser, const CefString& value) {
   (void)browser;
   if (delegate_ != nullptr) {
-    delegate_->OnStatusMessage(value.ToWString());
+    delegate_->OnStatusMessage(tab_id_, value.ToWString());
   }
 }
 
 void VeloxClient::OnLoadingProgressChange(CefRefPtr<CefBrowser> browser, double progress) {
   (void)browser;
   if (delegate_ != nullptr) {
-    delegate_->OnLoadProgress(progress);
+    delegate_->OnLoadProgress(tab_id_, progress);
   }
 }
 
@@ -198,7 +202,7 @@ void VeloxClient::OnLoadingStateChange(CefRefPtr<CefBrowser> browser,
                                        bool can_go_forward) {
   (void)browser;
   if (delegate_ != nullptr) {
-    delegate_->OnLoadingStateChange(is_loading, can_go_back, can_go_forward);
+    delegate_->OnLoadingStateChange(tab_id_, is_loading, can_go_back, can_go_forward);
   }
 
   if (metrics_ != nullptr) {
@@ -246,7 +250,67 @@ void VeloxClient::OnLoadError(CefRefPtr<CefBrowser> browser,
     metrics_->RecordText("navigation.error", error_text.ToString());
   }
   if (delegate_ != nullptr) {
-    delegate_->OnLoadError(failed_url.ToWString(), error_text.ToWString());
+    delegate_->OnLoadError(tab_id_, failed_url.ToWString(), error_text.ToWString());
+  }
+}
+
+bool VeloxClient::OnBeforeDownload(CefRefPtr<CefBrowser> browser,
+                                   CefRefPtr<CefDownloadItem> download_item,
+                                   const CefString& suggested_name,
+                                   CefRefPtr<CefBeforeDownloadCallback> callback) {
+  (void)browser;
+
+  if (delegate_ == nullptr || download_item == nullptr || callback == nullptr) {
+    return false;
+  }
+
+  std::wstring file_name = suggested_name.empty() ? L"download.bin" : suggested_name.ToWString();
+  const std::wstring full_path = delegate_->GetDownloadTargetPath(tab_id_, file_name);
+  if (full_path.empty()) {
+    callback->Continue(file_name, false);
+    return true;
+  }
+
+  delegate_->OnDownloadCreated(tab_id_, static_cast<int>(download_item->GetId()), file_name, full_path);
+  if (metrics_ != nullptr) {
+    metrics_->RecordText("download.started", std::to_string(download_item->GetId()) + ":" + CefString(full_path).ToString());
+  }
+  callback->Continue(full_path, false);
+  return true;
+}
+
+void VeloxClient::OnDownloadUpdated(CefRefPtr<CefBrowser> browser,
+                                    CefRefPtr<CefDownloadItem> download_item,
+                                    CefRefPtr<CefDownloadItemCallback> callback) {
+  (void)browser;
+  (void)callback;
+
+  if (delegate_ == nullptr || download_item == nullptr) {
+    return;
+  }
+
+  const int percent_complete = download_item->GetPercentComplete();
+  std::wstring status_text = L"Preparing download";
+  if (download_item->IsComplete()) {
+    status_text = L"Finished";
+  } else if (download_item->IsCanceled()) {
+    status_text = L"Canceled";
+  } else if (percent_complete >= 0) {
+    status_text = L"Downloading " + std::to_wstring(percent_complete) + L"%";
+  }
+
+  delegate_->OnDownloadUpdated(tab_id_,
+                               static_cast<int>(download_item->GetId()),
+                               percent_complete,
+                               download_item->IsComplete(),
+                               download_item->IsCanceled(),
+                               status_text);
+
+  if (metrics_ != nullptr) {
+    if (download_item->IsComplete()) {
+      metrics_->Mark("download.complete");
+    }
+    metrics_->RecordNumeric("download.percent", static_cast<double>(std::max(percent_complete, 0)));
   }
 }
 
@@ -279,9 +343,11 @@ bool VeloxClient::OnOpenURLFromTab(CefRefPtr<CefBrowser> browser,
     return false;
   }
 
-  browser->GetMainFrame()->LoadURL(target_url);
+  if (delegate_ != nullptr) {
+    delegate_->OnOpenUrlInNewTab(target_url.ToWString(), true);
+  }
   if (metrics_ != nullptr) {
-    metrics_->Mark("navigation.collapsed_to_current_tab");
+    metrics_->Mark("navigation.opened_in_new_tab");
   }
   return true;
 }
@@ -299,7 +365,7 @@ bool VeloxClient::OnRequestMediaAccessPermission(CefRefPtr<CefBrowser> browser,
   }
   RecordPermissionDecision("permission.media.denied", DescribeMediaPermissions(requested_permissions), requesting_origin);
   if (delegate_ != nullptr) {
-    delegate_->OnStatusMessage(L"Blocked camera or microphone access");
+    delegate_->OnStatusMessage(tab_id_, L"Blocked camera or microphone access");
   }
   return true;
 }
@@ -317,7 +383,7 @@ bool VeloxClient::OnShowPermissionPrompt(CefRefPtr<CefBrowser> browser,
   }
   RecordPermissionDecision("permission.prompt.denied", DescribePermissionTypes(requested_permissions), requesting_origin);
   if (delegate_ != nullptr) {
-    delegate_->OnStatusMessage(L"Blocked site permission request");
+    delegate_->OnStatusMessage(tab_id_, L"Blocked site permission request");
   }
   return true;
 }
@@ -340,7 +406,7 @@ bool VeloxClient::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser,
     metrics_->RecordNumeric(name, value);
   }
   if (delegate_ != nullptr) {
-    delegate_->OnRendererMetric(name, value);
+    delegate_->OnRendererMetric(tab_id_, name, value);
   }
   return true;
 }
@@ -359,15 +425,43 @@ bool VeloxClient::TryHandleShortcut(const CefKeyEvent& event) const {
         return true;
       }
       break;
+    case 'T':
+      if (control_down) {
+        delegate_->OnBrowserCommand(BrowserCommand::kNewTab);
+        return true;
+      }
+      break;
     case 'R':
       if (control_down) {
         delegate_->OnBrowserCommand(BrowserCommand::kReload);
         return true;
       }
       break;
+    case 'H':
+      if (control_down) {
+        delegate_->OnBrowserCommand(BrowserCommand::kToggleHistory);
+        return true;
+      }
+      break;
+    case 'J':
+      if (control_down) {
+        delegate_->OnBrowserCommand(BrowserCommand::kToggleDownloads);
+        return true;
+      }
+      break;
     case 'W':
       if (control_down) {
-        delegate_->OnBrowserCommand(BrowserCommand::kCloseWindow);
+        delegate_->OnBrowserCommand(BrowserCommand::kCloseTabOrWindow);
+        return true;
+      }
+      break;
+    case VK_TAB:
+      if (control_down && alt_down) {
+        return false;
+      }
+      if (control_down) {
+        delegate_->OnBrowserCommand(HasModifier(event.modifiers, EVENTFLAG_SHIFT_DOWN) ? BrowserCommand::kPreviousTab
+                                                                                       : BrowserCommand::kNextTab);
         return true;
       }
       break;
@@ -380,6 +474,12 @@ bool VeloxClient::TryHandleShortcut(const CefKeyEvent& event) const {
     case VK_F6:
       delegate_->OnBrowserCommand(BrowserCommand::kFocusAddressBar);
       return true;
+    case VK_OEM_COMMA:
+      if (control_down) {
+        delegate_->OnBrowserCommand(BrowserCommand::kToggleSettings);
+        return true;
+      }
+      break;
     case VK_LEFT:
       if (alt_down) {
         delegate_->OnBrowserCommand(BrowserCommand::kGoBack);

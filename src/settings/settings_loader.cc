@@ -238,6 +238,10 @@ const JsonValue* GetObjectMember(const JsonValue& value, const std::wstring& key
   return it == value.object_value.end() ? nullptr : &it->second;
 }
 
+std::filesystem::path GetProfilePreferencesPath(const AppSettings& settings) {
+  return settings.paths.profile_dir / L"ui_prefs.json";
+}
+
 std::filesystem::path ResolveCliPath(const std::filesystem::path& candidate) {
   if (candidate.empty() || candidate.is_absolute()) {
     return candidate;
@@ -283,6 +287,51 @@ std::optional<JsonValue> LoadJson(const std::filesystem::path& config_path) {
   buffer << stream.rdbuf();
   JsonParser parser(platform::ToWide(buffer.str()));
   return parser.Parse();
+}
+
+void FinalizeSearchSettings(AppSettings* settings) {
+  if (settings == nullptr) {
+    return;
+  }
+
+  if (settings->search.provider_name.empty()) {
+    settings->search.provider_name = L"Google";
+  }
+  if (settings->search.query_url_template.empty()) {
+    settings->search.query_url_template = L"https://www.google.com/search?q={query}";
+  }
+  if (settings->search.query_url_template.find(L"{query}") == std::wstring::npos) {
+    settings->search.query_url_template +=
+        settings->search.query_url_template.find(L'?') == std::wstring::npos ? L"?q={query}" : L"&q={query}";
+  }
+}
+
+std::wstring EscapeJsonString(const std::wstring& value) {
+  std::wstring escaped;
+  escaped.reserve(value.size() + 8);
+  for (wchar_t ch : value) {
+    switch (ch) {
+      case L'\\':
+        escaped += L"\\\\";
+        break;
+      case L'"':
+        escaped += L"\\\"";
+        break;
+      case L'\n':
+        escaped += L"\\n";
+        break;
+      case L'\r':
+        escaped += L"\\r";
+        break;
+      case L'\t':
+        escaped += L"\\t";
+        break;
+      default:
+        escaped.push_back(ch);
+        break;
+    }
+  }
+  return escaped;
 }
 
 }  // namespace
@@ -390,7 +439,48 @@ AppSettings LoadSettings(const std::filesystem::path& config_path,
   }
 
   FinalizeSettings(settings, base_dir);
+  LoadProfilePreferences(&settings);
   return settings;
+}
+
+void LoadProfilePreferences(AppSettings* settings) {
+  if (settings == nullptr) {
+    return;
+  }
+
+  const auto preferences_path = GetProfilePreferencesPath(*settings);
+  const auto json = LoadJson(preferences_path);
+  if (!json.has_value()) {
+    return;
+  }
+
+  if (const JsonValue* search = GetObjectMember(*json, L"search")) {
+    ApplyIfString(*search, L"provider_name", &settings->search.provider_name);
+    ApplyIfString(*search, L"query_url_template", &settings->search.query_url_template);
+  }
+
+  FinalizeSearchSettings(settings);
+}
+
+bool SaveProfilePreferences(const AppSettings& settings) {
+  if (!platform::EnsureDirectory(settings.paths.profile_dir)) {
+    return false;
+  }
+
+  std::ofstream stream(GetProfilePreferencesPath(settings), std::ios::binary | std::ios::trunc);
+  if (!stream.is_open()) {
+    return false;
+  }
+
+  stream << "{\n"
+         << "  \"search\": {\n"
+         << "    \"provider_name\": \"" << platform::ToUtf8(EscapeJsonString(settings.search.provider_name)) << "\",\n"
+         << "    \"query_url_template\": \""
+         << platform::ToUtf8(EscapeJsonString(settings.search.query_url_template)) << "\"\n"
+         << "  }\n"
+         << "}\n";
+
+  return stream.good();
 }
 
 }  // namespace velox::settings

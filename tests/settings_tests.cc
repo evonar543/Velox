@@ -82,5 +82,15 @@ int wmain() {
   assert(settings.optimization.predictor_host_count == 5);
   assert(settings.optimization.max_cache_size_mb == 768);
   assert(settings.optimization.cache_trim_target_percent == 75);
+
+  auto saved_settings = settings;
+  saved_settings.search.provider_name = L"DuckDuckGo";
+  saved_settings.search.query_url_template = L"https://duckduckgo.com/?q={query}";
+  assert(velox::settings::SaveProfilePreferences(saved_settings));
+
+  auto reloaded_settings = settings;
+  velox::settings::LoadProfilePreferences(&reloaded_settings);
+  assert(reloaded_settings.search.provider_name == L"DuckDuckGo");
+  assert(reloaded_settings.search.query_url_template == L"https://duckduckgo.com/?q={query}");
   return 0;
 }

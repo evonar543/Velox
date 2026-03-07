@@ -11,4 +11,7 @@ AppSettings LoadSettings(const std::filesystem::path& config_path,
                          const std::filesystem::path& base_dir,
                          const app::CommandLineOptions& command_line);
 
+void LoadProfilePreferences(AppSettings* settings);
+bool SaveProfilePreferences(const AppSettings& settings);
+
 }  // namespace velox::settings
