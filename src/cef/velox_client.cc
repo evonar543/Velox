@@ -125,6 +125,8 @@ bool VeloxClient::OnBeforePopup(CefRefPtr<CefBrowser> browser,
   (void)extra_info;
   (void)no_javascript_access;
 
+  // Velox keeps popup navigations in the existing window so we stay within the
+  // single-shell architecture while still honoring sites that want a new page.
   if (delegate_ != nullptr && !target_url.empty()) {
     delegate_->OnOpenUrlInNewTab(target_url.ToWString(), true);
     if (metrics_ != nullptr) {
@@ -264,6 +266,8 @@ bool VeloxClient::OnBeforeDownload(CefRefPtr<CefBrowser> browser,
     return false;
   }
 
+  // The shell chooses a deterministic profile-local target path up front so
+  // downloads work without a separate modal dialog flow.
   std::wstring file_name = suggested_name.empty() ? L"download.bin" : suggested_name.ToWString();
   const std::wstring full_path = delegate_->GetDownloadTargetPath(tab_id_, file_name);
   if (full_path.empty()) {
@@ -343,6 +347,8 @@ bool VeloxClient::OnOpenURLFromTab(CefRefPtr<CefBrowser> browser,
     return false;
   }
 
+  // Chromium surfaces many "open in new tab/window" flows through this hook.
+  // We keep that intent, but map it back into the app's own tab model.
   if (delegate_ != nullptr) {
     delegate_->OnOpenUrlInNewTab(target_url.ToWString(), true);
   }
@@ -416,6 +422,8 @@ bool VeloxClient::TryHandleShortcut(const CefKeyEvent& event) const {
     return false;
   }
 
+  // Shortcuts are intercepted here so they still work when the web page has
+  // focus and the native window would never see the key first.
   const bool control_down = HasModifier(event.modifiers, EVENTFLAG_CONTROL_DOWN);
   const bool alt_down = HasModifier(event.modifiers, EVENTFLAG_ALT_DOWN);
   switch (event.windows_key_code) {

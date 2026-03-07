@@ -1,6 +1,6 @@
 # Velox
 
-Velox is a minimal Chromium Embedded Framework browser shell for Windows. It stays intentionally lean: one window, real Chromium rendering, measurable performance hooks, and a compact custom chrome built around fast navigation instead of feature sprawl.
+Velox is a small Chromium Embedded Framework browser shell for Windows. The goal is simple: real Chromium rendering, a fast native shell, and just enough browser surface to feel pleasant without turning into a full Chrome clone.
 
 ## Features
 
@@ -85,6 +85,8 @@ Useful shortcuts:
 - `Alt+Left` and `Alt+Right` navigate back/forward
 - `Ctrl+W` closes the active tab, or the window if only one tab remains
 
+Those shortcuts are handled inside the CEF client layer, which means they still work even when the page itself has keyboard focus.
+
 Relative paths passed on the command line are resolved from the current working directory. Relative paths in `config/settings.json` are resolved from the executable directory.
 The portable build is expected to launch correctly even if the current working directory is not the executable folder.
 
@@ -141,6 +143,7 @@ Notes:
 - `optimization.max_cache_size_mb` controls when the disk cache gets trimmed on startup.
 - `optimization.cache_trim_target_percent` controls how far Velox trims once the cache exceeds budget.
 - `optimization.predictive_warmup` and `optimization.predictor_host_count` control the lightweight hot-host DNS warmup pass.
+- Runtime UI preferences like the active search provider are stored under the profile directory so the checked-in config can stay stable.
 
 ## How CEF Is Wired In
 

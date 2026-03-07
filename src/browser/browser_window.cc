@@ -273,6 +273,8 @@ std::wstring CurrentTimestampLabel() {
 }
 
 std::wstring HistoryStoreLine(const std::wstring& visited_at, const std::wstring& url, const std::wstring& title, const std::wstring& host) {
+  // A tiny tab-separated format keeps history/bookmarks easy to inspect and
+  // cheap to load without adding a heavier persistence layer to the shell.
   return EscapeField(visited_at) + L"\t" + EscapeField(url) + L"\t" + EscapeField(title) + L"\t" + EscapeField(host);
 }
 
@@ -316,6 +318,8 @@ std::wstring SanitizeFileName(std::wstring value) {
 }
 
 std::wstring PanelModeLabel(BrowserWindow::PanelMode mode) {
+  // Centralize user-facing section names so the rest of the shell can stay
+  // enum-driven instead of duplicating copy.
   switch (mode) {
     case BrowserWindow::PanelMode::kSettings:
       return L"Settings";
@@ -482,7 +486,7 @@ void BrowserWindow::OnDownloadCreated(int tab_id, int download_id, const std::ws
                              DownloadEntry{download_id, file_name, full_path, L"Starting download", 0, false, false});
   }
   OpenPanel(PanelMode::kDownloads);
-  SetStatusText(L"Downloading " + file_name);
+  SetStatusText(L"Downloading " + file_name + L"...");
 }
 
 void BrowserWindow::OnDownloadUpdated(int tab_id,
@@ -505,9 +509,9 @@ void BrowserWindow::OnDownloadUpdated(int tab_id,
     InvalidateRect(hwnd_, nullptr, FALSE);
   }
   if (is_complete) {
-    SetStatusText(L"Finished download: " + download->file_name);
+    SetStatusText(L"Download finished: " + download->file_name);
   } else if (is_canceled) {
-    SetStatusText(L"Canceled download: " + download->file_name);
+    SetStatusText(L"Download canceled: " + download->file_name);
   }
 }
 
@@ -567,7 +571,7 @@ LRESULT BrowserWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
         case win32::kHomeButtonId:
           if (notification_code == BN_CLICKED && active_tab() != nullptr) {
             controller_.Navigate(settings_.startup_url);
-            SetStatusText(L"Returning home...");
+            SetStatusText(L"Heading back home...");
           }
           return 0;
         case win32::kProfileBadgeId:
@@ -577,7 +581,7 @@ LRESULT BrowserWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
           return 0;
         case win32::kPrivacyBadgeId:
           if (notification_code == BN_CLICKED) {
-            SetStatusText(L"Shield on | trackers filtered | third-party cookies blocked");
+            SetStatusText(L"Privacy shield is on. Trackers and third-party cookies are being filtered.");
             settings_panel_open_ = false;
             InvalidateRect(hwnd_, nullptr, FALSE);
           }
@@ -841,7 +845,7 @@ void BrowserWindow::NavigateFromAddressBar() {
     metrics_->Mark("first_navigation.requested");
     first_navigation_requested_ = true;
   }
-  SetStatusText(L"Opening page...");
+  SetStatusText(L"Opening that page...");
   UpdateProgressBar(10);
   controller_.Navigate(url);
 }
@@ -962,7 +966,7 @@ std::wstring BrowserWindow::BuildDefaultStatusText() const {
   const TabState* tab = active_tab();
   const TabGroup* group = tab == nullptr ? nullptr : FindGroup(tab->group_id);
   if (tab != nullptr && !tab->url.empty() && tab->url != L"about:blank") {
-    std::wstring text = L"Viewing ";
+    std::wstring text = L"You're viewing ";
     const std::wstring host = ExtractDisplayHost(tab->url);
     text += host.empty() ? TabTitleForDisplay(*tab) : host;
     if (group != nullptr) {
@@ -971,9 +975,9 @@ std::wstring BrowserWindow::BuildDefaultStatusText() const {
     return text;
   }
   if (settings_.incognito_default) {
-    return L"Incognito session ready";
+    return L"Incognito session is ready.";
   }
-  return L"Ready | Ctrl+D save page | Ctrl+B bookmarks | Ctrl+J downloads";
+  return L"Ready to browse | Ctrl+D saves a page | Ctrl+B opens bookmarks";
 }
 
 std::wstring BrowserWindow::BuildPrivacyBadgeText() const {
@@ -1154,7 +1158,7 @@ void BrowserWindow::HandleLoadingStateMessage(int tab_id, bool is_loading, bool 
     UpdateNavigationButtons();
     if (is_loading) {
       saw_loading_activity_ = true;
-      SetStatusText(L"Loading page...");
+      SetStatusText(L"Loading this page...");
       if (load_progress_percent_ < 8) {
         UpdateProgressBar(8);
       }
@@ -1180,7 +1184,7 @@ void BrowserWindow::HandleLoadErrorMessage(int tab_id, std::wstring failed_url, 
   tab->load_error = std::move(error_text);
   if (tab_id == active_tab_id_) {
     SetAddressBarText(tab->url);
-    SetStatusText(L"Couldn't load page | " + tab->load_error);
+    SetStatusText(L"We couldn't open that page. " + tab->load_error);
   }
   platform::LogWarning("Browser load failed: " + platform::ToUtf8(tab->load_error));
 }
@@ -1612,6 +1616,8 @@ void BrowserWindow::DrawActionStrip(HDC device_context) {
 }
 
 void BrowserWindow::DrawLibraryPanel(HDC device_context) {
+  // One floating panel handles the shell's library-style surfaces so settings,
+  // history, bookmarks, and downloads all feel like part of the same product.
   DrawRoundedBlock(device_context, settings_panel_rect_, kPanelFillColor, kPanelBorderColor, 24);
 
   RECT header_rect = settings_panel_rect_;
@@ -1633,18 +1639,20 @@ void BrowserWindow::DrawLibraryPanel(HDC device_context) {
                 ui_font_,
                 kPanelMutedTextColor,
                 subtitle_rect,
-                panel_mode_ == PanelMode::kSettings ? L"runtime, privacy, and search controls"
+                panel_mode_ == PanelMode::kSettings ? L"quick controls for runtime, privacy, and search"
                                                     : panel_mode_ == PanelMode::kHistory
                                                           ? L"recent places you've opened in Velox"
                                                           : panel_mode_ == PanelMode::kDownloads
                                                                 ? L"active and finished downloads"
-                                                                : L"saved sites for quick launch",
+                                                                : L"saved sites you can jump back to fast",
                 DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 
   DrawSettingsPanel(device_context);
 }
 
 void BrowserWindow::DrawSettingsPanel(HDC device_context) {
+  // The body swaps content by mode, but the shared frame/layout keep the shell
+  // from feeling like a pile of unrelated popups.
   RECT tabs_row = MakeRect(settings_panel_rect_.left + 18, settings_panel_rect_.top + 52, settings_panel_rect_.right - 18, settings_panel_rect_.top + 84);
   const int inner_tab_width = std::max<int>(
       68,
@@ -1675,7 +1683,7 @@ void BrowserWindow::DrawSettingsPanel(HDC device_context) {
                     ui_font_,
                     kPanelMutedTextColor,
                     empty_rect,
-                    L"No history yet. Start browsing and Velox will keep a local trail here.",
+                    L"No history here yet. Browse a few pages and your recent visits will show up here.",
                     DT_LEFT | DT_WORDBREAK);
       return;
     }
@@ -1863,7 +1871,7 @@ void BrowserWindow::DrawSettingsPanel(HDC device_context) {
                 ui_font_,
                 kSettingsLabelColor,
                 helper_rect,
-                L"Changes apply instantly to the omnibox and are saved locally.",
+                L"Changes apply right away and are saved locally for the next launch.",
                 DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 
   for (const auto& option : settings_options_) {
@@ -1891,7 +1899,7 @@ void BrowserWindow::DrawSettingsPanel(HDC device_context) {
                 ui_font_,
                 kPanelMutedTextColor,
                 footer_rect,
-                L"Deep engine/privacy switches come from config and request-context policy, so some changes still belong in settings.json for now.",
+                L"Deeper engine and privacy switches still live in settings.json, so this panel stays focused on the fast everyday stuff.",
                 DT_LEFT | DT_WORDBREAK);
 }
 
@@ -2245,8 +2253,8 @@ void BrowserWindow::ApplySearchProvider(const std::wstring& provider_name, const
   settings_.search.query_url_template = query_template;
   const bool saved = settings::SaveProfilePreferences(settings_);
   UpdateAddressCueText();
-  SetStatusText(saved ? L"Search now uses " + provider_name + L" | saved for next launch"
-                      : L"Search now uses " + provider_name + L" | couldn't save preference");
+  SetStatusText(saved ? L"Search is now set to " + provider_name + L", and it will stick next time too."
+                      : L"Search is now set to " + provider_name + L", but the preference could not be saved.");
   InvalidateRect(hwnd_, nullptr, FALSE);
 }
 
@@ -2350,6 +2358,8 @@ void BrowserWindow::SaveBookmarksToDisk() const {
     return;
   }
 
+  // Bookmarks share the same tiny TSV shape as history so the on-disk data
+  // stays easy to inspect while the feature set is still intentionally lean.
   std::wofstream stream(settings_.paths.profile_dir / L"bookmarks.tsv", std::ios::trunc);
   if (!stream.is_open()) {
     return;
@@ -2370,7 +2380,7 @@ void BrowserWindow::ActivateHistoryEntry(size_t index) {
 
   SetAddressBarText(history_entries_[index].url);
   controller_.Navigate(history_entries_[index].url);
-  SetStatusText(L"Reopened " + history_entries_[index].host);
+  SetStatusText(L"Reopened " + history_entries_[index].host + L" from your history.");
   panel_mode_ = PanelMode::kNone;
   settings_panel_open_ = false;
   ResizeBrowserHosts();
@@ -2387,7 +2397,7 @@ void BrowserWindow::ActivateBookmarkEntry(size_t index) {
 
   SetAddressBarText(bookmark_entries_[index].url);
   controller_.Navigate(bookmark_entries_[index].url);
-  SetStatusText(L"Opened bookmark: " + bookmark_entries_[index].host);
+  SetStatusText(L"Opened your bookmark for " + bookmark_entries_[index].host + L".");
   panel_mode_ = PanelMode::kNone;
   settings_panel_open_ = false;
   ResizeBrowserHosts();
@@ -2400,6 +2410,8 @@ void BrowserWindow::ToggleCurrentPageBookmark() {
     return;
   }
 
+  // Bookmarks stay intentionally simple for now: a flat local list that loads
+  // quickly and is easy to evolve later into folders or richer metadata.
   const auto existing = std::find_if(bookmark_entries_.begin(),
                                      bookmark_entries_.end(),
                                      [&](const BookmarkEntry& entry) { return entry.url == tab->url; });
@@ -2407,7 +2419,7 @@ void BrowserWindow::ToggleCurrentPageBookmark() {
     const std::wstring host = existing->host;
     bookmark_entries_.erase(existing);
     SaveBookmarksToDisk();
-    SetStatusText(L"Removed bookmark: " + host);
+    SetStatusText(L"Removed bookmark for " + host + L".");
   } else {
     bookmark_entries_.insert(bookmark_entries_.begin(),
                              BookmarkEntry{TabTitleForDisplay(*tab), tab->url, ExtractDisplayHost(tab->url), CurrentTimestampLabel()});
@@ -2415,7 +2427,7 @@ void BrowserWindow::ToggleCurrentPageBookmark() {
       bookmark_entries_.resize(kMaxHistoryEntries);
     }
     SaveBookmarksToDisk();
-    SetStatusText(L"Saved bookmark: " + TabTitleForDisplay(*tab));
+    SetStatusText(L"Saved " + TabTitleForDisplay(*tab) + L" to bookmarks.");
   }
 
   if (hwnd_ != nullptr) {

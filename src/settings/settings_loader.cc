@@ -294,6 +294,8 @@ void FinalizeSearchSettings(AppSettings* settings) {
     return;
   }
 
+  // Search settings can come from defaults, config, CLI, or per-profile UI
+  // preferences, so normalize them in one place before the browser uses them.
   if (settings->search.provider_name.empty()) {
     settings->search.provider_name = L"Google";
   }
@@ -448,6 +450,8 @@ void LoadProfilePreferences(AppSettings* settings) {
     return;
   }
 
+  // These prefs are intentionally tiny and profile-local so lightweight UI
+  // choices can persist without mutating the main checked-in config file.
   const auto preferences_path = GetProfilePreferencesPath(*settings);
   const auto json = LoadJson(preferences_path);
   if (!json.has_value()) {
@@ -467,6 +471,8 @@ bool SaveProfilePreferences(const AppSettings& settings) {
     return false;
   }
 
+  // Keep the saved shape intentionally small: only values that users can change
+  // from the shell at runtime belong here.
   std::ofstream stream(GetProfilePreferencesPath(settings), std::ios::binary | std::ios::trunc);
   if (!stream.is_open()) {
     return false;
