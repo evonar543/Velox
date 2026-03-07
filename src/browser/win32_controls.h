@@ -41,7 +41,7 @@ struct LayoutRects {
   RECT browser{};
 };
 
-LayoutRects ComputeLayout(const RECT& client_rect);
+LayoutRects ComputeLayout(const RECT& client_rect, bool barebones_prototype);
 void InstallAddressBarSubclass(HWND address_bar, HWND parent);
 std::wstring NormalizeAddressInput(std::wstring value, std::wstring_view search_url_template);
 

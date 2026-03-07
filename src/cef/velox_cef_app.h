@@ -4,6 +4,7 @@
 
 #include "app/runtime_profile.h"
 #include "include/cef_app.h"
+#include "settings/app_settings.h"
 
 namespace velox::cef {
 
@@ -14,6 +15,7 @@ class VeloxCefApp : public CefApp,
   VeloxCefApp() = default;
 
   void SetRuntimeProfile(const app::RuntimeProfile& profile);
+  void SetAppSettings(const settings::AppSettings& settings);
 
   CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override;
   CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() override;
@@ -26,6 +28,7 @@ class VeloxCefApp : public CefApp,
 
  private:
   std::optional<app::RuntimeProfile> runtime_profile_;
+  std::optional<settings::AppSettings> app_settings_;
 
   IMPLEMENT_REFCOUNTING(VeloxCefApp);
 };

@@ -35,6 +35,17 @@ int wmain() {
             "    \"provider_name\": \"Google\",\n"
             "    \"query_url_template\": \"https://www.google.com/search?q={query}\"\n"
             "  },\n"
+            "  \"ui\": {\n"
+            "    \"barebones_prototype\": true\n"
+            "  },\n"
+            "  \"extensions\": {\n"
+            "    \"enabled\": true,\n"
+            "    \"chrome_runtime\": true,\n"
+            "    \"open_extensions_page_on_startup\": true,\n"
+            "    \"allow_file_access\": true,\n"
+            "    \"unpacked_dirs\": [\"extensions/a\", \"extensions/b\"],\n"
+            "    \"extra_chromium_switches\": [\"extensions-on-chrome-urls\", \"show-component-extension-options\"]\n"
+            "  },\n"
             "  \"optimization\": {\n"
             "    \"auto_tune\": true,\n"
             "    \"renderer_process_limit\": 0,\n"
@@ -53,6 +64,7 @@ int wmain() {
   options.profile_dir = L"profile-b";
   options.log_file = L"logs-b/custom.log";
   options.benchmark_output = L"logs-b/metrics.jsonl";
+  options.extension_dirs.push_back(L"profile-b/custom-extensions");
 
   const auto settings = velox::settings::LoadSettings(config_path, base_dir, options);
   assert(settings.startup_url == L"https://override.test");
@@ -76,6 +88,18 @@ int wmain() {
   assert(settings.blocking.block_trackers);
   assert(settings.search.provider_name == L"Google");
   assert(settings.search.query_url_template == L"https://www.google.com/search?q={query}");
+  assert(settings.ui.barebones_prototype);
+  assert(settings.extensions.enabled);
+  assert(settings.extensions.chrome_runtime);
+  assert(settings.extensions.open_extensions_page_on_startup);
+  assert(settings.extensions.allow_file_access);
+  assert(settings.extensions.unpacked_dirs.size() == 3);
+  assert(settings.extensions.unpacked_dirs[0] == base_dir / L"extensions/a");
+  assert(settings.extensions.unpacked_dirs[1] == base_dir / L"extensions/b");
+  assert(settings.extensions.unpacked_dirs[2] == working_dir / L"profile-b" / L"custom-extensions");
+  assert(settings.extensions.extra_chromium_switches.size() == 2);
+  assert(settings.extensions.extra_chromium_switches[0] == L"extensions-on-chrome-urls");
+  assert(settings.extensions.extra_chromium_switches[1] == L"show-component-extension-options");
   assert(settings.optimization.auto_tune);
   assert(settings.optimization.renderer_process_limit == 0);
   assert(settings.optimization.predictive_warmup);

@@ -12,6 +12,8 @@ namespace velox::app {
 
 namespace {
 
+constexpr int kAppIconResourceId = 101;
+
 cef_log_severity_t ToCefLogSeverity(platform::LogLevel level) {
   switch (level) {
     case platform::LogLevel::kTrace:
@@ -151,7 +153,9 @@ bool AppBootstrap::InitializeCef(const CefMainArgs& main_args) {
   cef_settings.command_line_args_disabled = false;
   cef_settings.persist_session_cookies = false;
   cef_settings.log_severity = ToCefLogSeverity(settings_.log_level);
+  cef_settings.chrome_app_icon_id = kAppIconResourceId;
   cef_app_->SetRuntimeProfile(runtime_profile_);
+  cef_app_->SetAppSettings(settings_);
   // Make the packaged app self-contained so it can be launched from any
   // working directory without CEF guessing where resources live.
   CefString(&cef_settings.browser_subprocess_path) = executable_path.wstring();

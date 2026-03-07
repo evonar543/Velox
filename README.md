@@ -9,6 +9,7 @@ Velox is a small Chromium Embedded Framework browser shell for Windows. The goal
 - Polished custom chrome with a styled omnibox shell, home button, runtime/privacy badges, a quick settings popover, status text, and load progress
 - Multi-tab browsing with group accents for Focus, Build, and Chill workflows
 - Drag-to-reorder tabs without spawning extra windows
+- Barebones prototype mode that hands the whole client area to Chrome-style CEF UI
 - Right-side library panel for settings, history, and downloads
 - Persistent bookmarks panel with keyboard-driven save/open flows
 - Multi-process startup via `CefExecuteProcess` and `CefInitialize`
@@ -22,6 +23,8 @@ Velox is a small Chromium Embedded Framework browser shell for Windows. The goal
 - Startup cache budgeting that trims oversized cache directories before Chromium starts
 - Lightweight predictive warmup that remembers hot hosts and primes DNS for faster repeat visits
 - JSON-backed settings
+- Unpacked extension loading for local prototypes, including a bundled sample extension
+- Extension customization through config-backed directories and extra Chromium switches
 - Structured file logging and crash dump generation
 - Benchmark hooks for startup, navigation, first paint, and memory
 - Optional incognito scaffold using a dedicated in-memory request context
@@ -54,7 +57,7 @@ cmake -S . -B build -G "Visual Studio 18 2026" -A x64 -DCEF_ROOT=C:/path/to/cef_
 cmake --build build --config Release
 ```
 
-The resulting binary will be in `build/Release/velox.exe` with the required CEF runtime files and `config/settings.json` copied beside it.
+The resulting binary will be in `build/Release/velox.exe` with the required CEF runtime files, `config/settings.json`, and the `extensions/` folder copied beside it.
 
 ## Package A Release
 
@@ -79,6 +82,10 @@ Useful flags:
 - `--log-file=logs/velox.log`
 - `--dump-benchmarks=logs/metrics.jsonl`
 - `--quit-after-load`
+- `--enable-extensions`
+- `--extension-dir=C:/path/to/unpacked-extension`
+- `--extensions-page`
+- `--barebones-ui`
 
 Useful shortcuts:
 
@@ -99,6 +106,21 @@ Those shortcuts are handled inside the CEF client layer, which means they still 
 
 Relative paths passed on the command line are resolved from the current working directory. Relative paths in `config/settings.json` are resolved from the executable directory.
 The portable build is expected to launch correctly even if the current working directory is not the executable folder.
+
+## Extensions
+
+Velox now supports unpacked Chromium extensions for prototype work.
+
+- By default the checked-in config enables a bundled sample extension from `extensions/sample-hello`.
+- Add one or more custom directories with repeated `--extension-dir=...` flags.
+- Use `--extensions-page` to start on `chrome://extensions/`.
+- Use `extensions.extra_chromium_switches` in `config/settings.json` when you need specific Chromium extension flags for experiments.
+
+Current runtime assumption:
+
+- Extension support is routed through CEF's Chrome runtime style for maximum compatibility.
+- The default config pairs that with `ui.barebones_prototype = true`, which means Velox gets out of the way and lets the Chrome-style browser chrome fill the window for extension-heavy prototyping.
+- The richer custom Velox shell is still there for non-extension browsing workflows; this pass just defaults to the more compatible prototype path.
 
 ## Settings Schema
 
@@ -135,6 +157,19 @@ The portable build is expected to launch correctly even if the current working d
     "provider_name": "Google",
     "query_url_template": "https://www.google.com/search?q={query}"
   },
+  "ui": {
+    "barebones_prototype": true
+  },
+  "extensions": {
+    "enabled": true,
+    "chrome_runtime": true,
+    "open_extensions_page_on_startup": false,
+    "allow_file_access": false,
+    "unpacked_dirs": [
+      "extensions/sample-hello"
+    ],
+    "extra_chromium_switches": []
+  },
   "optimization": {
     "auto_tune": true,
     "renderer_process_limit": 0,
@@ -150,6 +185,9 @@ The portable build is expected to launch correctly even if the current working d
 Notes:
 
 - `search.query_url_template` must contain `{query}` somewhere in the URL. Velox URL-encodes the typed text before inserting it.
+- `ui.barebones_prototype` is only applied when Velox is using Chrome runtime style for extensions.
+- `extensions.unpacked_dirs` accepts one or more unpacked extension directories and resolves relative paths from the executable folder.
+- `extensions.extra_chromium_switches` accepts raw switch names like `extensions-on-chrome-urls` or `name=value` pairs.
 - `optimization.max_cache_size_mb` controls when the disk cache gets trimmed on startup.
 - `optimization.cache_trim_target_percent` controls how far Velox trims once the cache exceeds budget.
 - `optimization.predictive_warmup` and `optimization.predictor_host_count` control the lightweight hot-host DNS warmup pass.
@@ -161,11 +199,13 @@ Notes:
 - If the current process is a Chromium subprocess, CEF runs that role and exits immediately.
 - The browser process loads settings, starts logging and crash handling, and then calls `CefInitialize`.
 - `VeloxCefApp::OnBeforeCommandLineProcessing` applies browser-shell switches that cut background services, keep GPU acceleration on, and honor the detected runtime profile.
+- The same command-line hook also enables unpacked extensions and any extension-specific Chromium switches from the config or CLI.
 - `BrowserPolicy` owns request-context preferences, third-party cookie policy, cross-site referrer trimming, WebRTC privacy hardening, request header privacy signals, and ad/tracker blocking.
 - `SitePredictor` stores a tiny hot-host history under the profile directory and warms the most likely hosts in the background during startup.
 - `CacheMaintenance` trims old cache files before CEF spins up so long-running profiles do not quietly turn cold start into sludge.
 - The native Win32 shell creates a child `CefBrowser` window for page rendering.
 - The Win32 shell keeps the UI cheap: owner-drawn buttons, common-controls progress bar, and direct layout without any extra widget framework.
+- When Chrome runtime + barebones prototype mode are enabled, Velox intentionally skips the custom shell chrome and gives the full client area to Chromium's own browser UI so extension surfaces behave more like a real browser.
 - The omnibox decides between URL navigation and search queries locally, then expands search terms through the configured search template.
 - The chrome reserves a right-side library panel for settings, history, and download state instead of opening extra native windows.
 - The profile badge and keyboard shortcuts open custom in-app surfaces for changing the search provider, reviewing recent history, opening saved pages, and checking downloads without leaving the current page.
@@ -180,7 +220,8 @@ Notes:
 - The built-in blocker uses a curated hostname/pattern list, not a full EasyList-scale rules engine yet
 - Predictive warmup currently primes DNS only; it does not keep hidden live pages or speculative renderers around
 - No custom networking stack or scheme handlers yet
-- No session restore, extensions, sync, accounts, or browser chrome beyond the toolbar
+- No session restore, sync, or account features yet
+- Extension support is currently focused on unpacked local prototypes rather than a polished install/update UX
 - ATL is not installed in the current Build Tools environment, so CEF prints an ATL warning during configure. Velox does not rely on ATL in this build.
 - Velox intentionally tunes Chromium and V8 through supported CEF hooks; it does not patch Blink or V8 source directly.
 

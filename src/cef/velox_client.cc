@@ -59,8 +59,14 @@ std::string DescribePermissionTypes(uint32_t requested_permissions) {
 
 }  // namespace
 
-VeloxClient::VeloxClient(int tab_id, BrowserEventDelegate* delegate, profiling::MetricsRecorder* metrics)
-    : tab_id_(tab_id), delegate_(delegate), metrics_(metrics) {}
+VeloxClient::VeloxClient(int tab_id,
+                         BrowserEventDelegate* delegate,
+                         profiling::MetricsRecorder* metrics,
+                         bool intercept_shell_shortcuts)
+    : tab_id_(tab_id),
+      delegate_(delegate),
+      metrics_(metrics),
+      intercept_shell_shortcuts_(intercept_shell_shortcuts) {}
 
 CefRefPtr<CefDisplayHandler> VeloxClient::GetDisplayHandler() {
   return this;
@@ -124,6 +130,10 @@ bool VeloxClient::OnBeforePopup(CefRefPtr<CefBrowser> browser,
   (void)settings;
   (void)extra_info;
   (void)no_javascript_access;
+
+  if (!intercept_shell_shortcuts_) {
+    return false;
+  }
 
   // Velox keeps popup navigations in the existing window so we stay within the
   // single-shell architecture while still honoring sites that want a new page.
@@ -347,6 +357,10 @@ bool VeloxClient::OnOpenURLFromTab(CefRefPtr<CefBrowser> browser,
     return false;
   }
 
+  if (!intercept_shell_shortcuts_) {
+    return false;
+  }
+
   // Chromium surfaces many "open in new tab/window" flows through this hook.
   // We keep that intent, but map it back into the app's own tab model.
   if (delegate_ != nullptr) {
@@ -418,7 +432,7 @@ bool VeloxClient::OnProcessMessageReceived(CefRefPtr<CefBrowser> browser,
 }
 
 bool VeloxClient::TryHandleShortcut(const CefKeyEvent& event) const {
-  if (delegate_ == nullptr) {
+  if (delegate_ == nullptr || !intercept_shell_shortcuts_) {
     return false;
   }
 

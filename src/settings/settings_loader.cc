@@ -8,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "platform/win/file_utils.h"
 
@@ -21,6 +22,7 @@ struct JsonValue {
     kBool,
     kNumber,
     kString,
+    kArray,
     kObject,
   };
 
@@ -28,6 +30,7 @@ struct JsonValue {
   bool bool_value = false;
   double number_value = 0.0;
   std::wstring string_value;
+  std::vector<JsonValue> array_value;
   std::unordered_map<std::wstring, JsonValue> object_value;
 };
 
@@ -56,6 +59,9 @@ class JsonParser {
     if (current == L'{') {
       return ParseObject();
     }
+    if (current == L'[') {
+      return ParseArray();
+    }
     if (current == L'"') {
       JsonValue value;
       value.type = JsonValue::Type::kString;
@@ -73,6 +79,38 @@ class JsonParser {
       return ParseNumber();
     }
     return std::nullopt;
+  }
+
+  std::optional<JsonValue> ParseArray() {
+    if (!Consume(L'[')) {
+      return std::nullopt;
+    }
+
+    JsonValue array;
+    array.type = JsonValue::Type::kArray;
+
+    SkipWhitespace();
+    if (Consume(L']')) {
+      return array;
+    }
+
+    while (position_ < input_.size()) {
+      const auto value = ParseValue();
+      if (!value.has_value()) {
+        return std::nullopt;
+      }
+
+      array.array_value.push_back(*value);
+      SkipWhitespace();
+      if (Consume(L']')) {
+        break;
+      }
+      if (!Consume(L',')) {
+        return std::nullopt;
+      }
+    }
+
+    return array;
   }
 
   std::optional<JsonValue> ParseObject() {
@@ -277,6 +315,20 @@ void ApplyIfInt(const JsonValue& root, const std::wstring& key, int* output) {
   }
 }
 
+void ApplyStringArray(const JsonValue& root, const std::wstring& key, std::vector<std::wstring>* output) {
+  const JsonValue* value = GetObjectMember(root, key);
+  if (value == nullptr || value->type != JsonValue::Type::kArray || output == nullptr) {
+    return;
+  }
+
+  output->clear();
+  for (const auto& entry : value->array_value) {
+    if (entry.type == JsonValue::Type::kString) {
+      output->push_back(entry.string_value);
+    }
+  }
+}
+
 std::optional<JsonValue> LoadJson(const std::filesystem::path& config_path) {
   std::ifstream stream(config_path, std::ios::binary);
   if (!stream.is_open()) {
@@ -411,6 +463,28 @@ AppSettings LoadSettings(const std::filesystem::path& config_path,
       ApplyIfString(*search, L"query_url_template", &settings.search.query_url_template);
     }
 
+    if (const JsonValue* ui = GetObjectMember(*json, L"ui")) {
+      ApplyIfBool(*ui, L"barebones_prototype", &settings.ui.barebones_prototype);
+    }
+
+    if (const JsonValue* extensions = GetObjectMember(*json, L"extensions")) {
+      ApplyIfBool(*extensions, L"enabled", &settings.extensions.enabled);
+      ApplyIfBool(*extensions, L"chrome_runtime", &settings.extensions.chrome_runtime);
+      ApplyIfBool(*extensions, L"open_extensions_page_on_startup", &settings.extensions.open_extensions_page_on_startup);
+      ApplyIfBool(*extensions, L"allow_file_access", &settings.extensions.allow_file_access);
+
+      std::vector<std::wstring> unpacked_dirs;
+      ApplyStringArray(*extensions, L"unpacked_dirs", &unpacked_dirs);
+      if (!unpacked_dirs.empty()) {
+        settings.extensions.unpacked_dirs.clear();
+        for (const auto& unpacked_dir : unpacked_dirs) {
+          settings.extensions.unpacked_dirs.emplace_back(unpacked_dir);
+        }
+      }
+
+      ApplyStringArray(*extensions, L"extra_chromium_switches", &settings.extensions.extra_chromium_switches);
+    }
+
     if (const JsonValue* optimization = GetObjectMember(*json, L"optimization")) {
       ApplyIfBool(*optimization, L"auto_tune", &settings.optimization.auto_tune);
       ApplyIfInt(*optimization, L"renderer_process_limit", &settings.optimization.renderer_process_limit);
@@ -438,6 +512,21 @@ AppSettings LoadSettings(const std::filesystem::path& config_path,
   if (command_line.benchmark_output.has_value()) {
     settings.benchmarking.enabled = true;
     settings.benchmarking.output_file = ResolveCliPath(*command_line.benchmark_output);
+  }
+  if (command_line.enable_extensions) {
+    settings.extensions.enabled = true;
+  }
+  if (command_line.barebones_ui) {
+    settings.ui.barebones_prototype = true;
+  }
+  if (command_line.open_extensions_page) {
+    settings.extensions.enabled = true;
+    settings.extensions.open_extensions_page_on_startup = true;
+  }
+  for (const auto& extension_dir : command_line.extension_dirs) {
+    if (!extension_dir.empty()) {
+      settings.extensions.unpacked_dirs.emplace_back(ResolveCliPath(extension_dir));
+    }
   }
 
   FinalizeSettings(settings, base_dir);

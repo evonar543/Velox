@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "browser/win32_controls.h"
+#include "cef/extension_support.h"
 #include "cef/request_context_factory.h"
 #include "include/cef_parser.h"
 #include "platform/win/file_utils.h"
@@ -399,8 +400,9 @@ bool BrowserWindow::CreateBrowserShell() {
   }
 
   request_context_ = cef::CreateRequestContext(settings_, settings_.incognito_default, metrics_);
-  SetAddressBarText(settings_.startup_url);
-  return CreateTab(settings_.startup_url, true, tab_groups_.empty() ? 0 : tab_groups_.front().id);
+  const std::wstring initial_url = cef::ResolveInitialBrowserUrl(settings_);
+  SetAddressBarText(initial_url);
+  return CreateTab(initial_url, true, tab_groups_.empty() ? 0 : tab_groups_.front().id);
 }
 
 HWND BrowserWindow::hwnd() const {
@@ -733,6 +735,11 @@ LRESULT BrowserWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
 }
 
 void BrowserWindow::CreateControls() {
+  if (UseBarebonesPrototypeUi()) {
+    status_text_ = BuildDefaultStatusText();
+    return;
+  }
+
   brand_label_ = CreateWindowExW(0, L"STATIC", L"Velox", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, hwnd_,
                                  reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kBrandLabelId)), instance_, nullptr);
   back_button_ = CreateWindowExW(0, L"BUTTON", L"Back", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
@@ -787,7 +794,7 @@ void BrowserWindow::LayoutChildren() {
 
   RECT client_rect{};
   GetClientRect(hwnd_, &client_rect);
-  const auto layout = win32::ComputeLayout(client_rect);
+  const auto layout = win32::ComputeLayout(client_rect, UseBarebonesPrototypeUi());
   RebuildChromeRects(client_rect);
 
   MoveWindow(brand_label_, layout.brand.left, layout.brand.top, layout.brand.right - layout.brand.left,
@@ -817,7 +824,7 @@ void BrowserWindow::ResizeBrowserHosts() {
 
   RECT client_rect{};
   GetClientRect(hwnd_, &client_rect);
-  const auto layout = win32::ComputeLayout(client_rect);
+  const auto layout = win32::ComputeLayout(client_rect, UseBarebonesPrototypeUi());
   const int browser_width = IsPanelOpen()
                                 ? std::max<int>(320, static_cast<int>(settings_panel_rect_.left - layout.browser.left - 12))
                                 : static_cast<int>(layout.browser.right - layout.browser.left);
@@ -1336,12 +1343,12 @@ bool BrowserWindow::CreateTab(const std::wstring& target_url, bool activate, int
   tab.id = next_tab_id_++;
   tab.group_id = preferred_group_id == 0 ? ActiveGroupId() : preferred_group_id;
   tab.url = target_url.empty() ? L"about:blank" : target_url;
-  tab.client = new cef::VeloxClient(tab.id, this, metrics_);
+  tab.client = new cef::VeloxClient(tab.id, this, metrics_, !UseChromeRuntime());
   tabs_.push_back(tab);
 
   RECT client_rect{};
   GetClientRect(hwnd_, &client_rect);
-  const auto layout = win32::ComputeLayout(client_rect);
+  const auto layout = win32::ComputeLayout(client_rect, UseBarebonesPrototypeUi());
   const CefRect browser_bounds(layout.browser.left,
                                layout.browser.top,
                                layout.browser.right - layout.browser.left,
@@ -1349,6 +1356,7 @@ bool BrowserWindow::CreateTab(const std::wstring& target_url, bool activate, int
 
   CefWindowInfo window_info;
   window_info.SetAsChild(hwnd_, browser_bounds);
+  window_info.runtime_style = UseChromeRuntime() ? CEF_RUNTIME_STYLE_CHROME : CEF_RUNTIME_STYLE_ALLOY;
 
   CefBrowserSettings browser_settings;
   browser_settings.background_color = CefColorSetARGB(255, 255, 255, 255);
@@ -1510,7 +1518,11 @@ void BrowserWindow::UpdateControllerFromActiveTab() {
 }
 
 void BrowserWindow::DrawCustomChrome(HDC device_context, const RECT& client_rect) {
-  const auto layout = win32::ComputeLayout(client_rect);
+  if (UseBarebonesPrototypeUi()) {
+    return;
+  }
+
+  const auto layout = win32::ComputeLayout(client_rect, false);
 
   RECT toolbar_rect = client_rect;
   toolbar_rect.bottom = std::min<LONG>(toolbar_rect.bottom, win32::kToolbarHeight);
@@ -1924,11 +1936,22 @@ void BrowserWindow::DrawSettingsPanel(HDC device_context) {
 }
 
 void BrowserWindow::RebuildChromeRects(const RECT& client_rect) {
-  const auto layout = win32::ComputeLayout(client_rect);
+  const auto layout = win32::ComputeLayout(client_rect, UseBarebonesPrototypeUi());
   groups_strip_rect_ = layout.groups_strip;
   tabs_strip_rect_ = layout.tabs_strip;
   new_tab_button_rect_ = layout.new_tab_button;
   address_shell_rect_ = layout.address_shell;
+
+  if (UseBarebonesPrototypeUi()) {
+    action_visuals_.clear();
+    group_visuals_.clear();
+    tab_visuals_.clear();
+    settings_options_.clear();
+    history_visuals_.clear();
+    download_visuals_.clear();
+    bookmark_visuals_.clear();
+    return;
+  }
   settings_panel_rect_ = MakeRect(std::max<int>(layout.browser.right - kPanelWidth - 12, layout.browser.left + 320),
                                   layout.browser.top + 12,
                                   layout.browser.right - 12,
@@ -2520,6 +2543,14 @@ std::wstring BrowserWindow::TabTitleForDisplay(const TabState& tab) const {
     return host;
   }
   return L"New tab";
+}
+
+bool BrowserWindow::UseBarebonesPrototypeUi() const {
+  return cef::UseBarebonesPrototypeUi(settings_);
+}
+
+bool BrowserWindow::UseChromeRuntime() const {
+  return cef::UseChromeRuntime(settings_);
 }
 
 }  // namespace velox::browser

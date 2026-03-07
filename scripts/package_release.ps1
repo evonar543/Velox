@@ -62,7 +62,8 @@ $runtimeFiles = @(
 
 $runtimeDirectories = @(
   "locales",
-  "config"
+  "config",
+  "extensions"
 )
 
 foreach ($file in $runtimeFiles) {
@@ -98,6 +99,10 @@ This package contains the minimal Windows x64 runtime for Velox:
 - velox.exe
 - required CEF DLLs/resources
 - config/settings.json
+- extensions/sample-hello
+
+Velox v0.4.0 and newer can load unpacked extensions from the bundled
+extensions folder or from custom --extension-dir paths.
 
 Unzip the folder and run velox.exe.
 "@ | Set-Content -Path $notesPath -Encoding ascii

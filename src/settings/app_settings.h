@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include "platform/win/logger.h"
 
@@ -46,6 +47,19 @@ struct SearchSettings {
   std::wstring query_url_template = L"https://www.google.com/search?q={query}";
 };
 
+struct UiSettings {
+  bool barebones_prototype = false;
+};
+
+struct ExtensionsSettings {
+  bool enabled = false;
+  bool chrome_runtime = true;
+  bool open_extensions_page_on_startup = false;
+  bool allow_file_access = false;
+  std::vector<std::filesystem::path> unpacked_dirs;
+  std::vector<std::wstring> extra_chromium_switches;
+};
+
 struct OptimizationSettings {
   bool auto_tune = true;
   int renderer_process_limit = 0;
@@ -63,6 +77,8 @@ struct AppSettings {
   PrivacySettings privacy;
   BlockingSettings blocking;
   SearchSettings search;
+  UiSettings ui;
+  ExtensionsSettings extensions;
   OptimizationSettings optimization;
   platform::LogLevel log_level = platform::LogLevel::kInfo;
   bool incognito_default = false;

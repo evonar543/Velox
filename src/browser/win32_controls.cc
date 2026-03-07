@@ -82,8 +82,13 @@ LRESULT CALLBACK AddressBarSubclassProc(HWND window,
 
 }  // namespace
 
-LayoutRects ComputeLayout(const RECT& client_rect) {
+LayoutRects ComputeLayout(const RECT& client_rect, bool barebones_prototype) {
   LayoutRects rects;
+
+  if (barebones_prototype) {
+    rects.browser = {client_rect.left, client_rect.top, client_rect.right, client_rect.bottom};
+    return rects;
+  }
 
   const int width = client_rect.right - client_rect.left;
   const int group_top = kPadding;

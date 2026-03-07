@@ -35,6 +35,19 @@
     "provider_name": "Google",
     "query_url_template": "https://www.google.com/search?q={query}"
   },
+  "ui": {
+    "barebones_prototype": true
+  },
+  "extensions": {
+    "enabled": true,
+    "chrome_runtime": true,
+    "open_extensions_page_on_startup": false,
+    "allow_file_access": false,
+    "unpacked_dirs": [
+      "extensions/sample-hello"
+    ],
+    "extra_chromium_switches": []
+  },
   "optimization": {
     "auto_tune": true,
     "renderer_process_limit": 0,

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.27)
 
-project(Velox VERSION 0.3.1 LANGUAGES CXX)
+project(Velox VERSION 0.4.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,6 +29,7 @@ set(VELOX_SOURCES
   src/browser/browser_window.cc
   src/browser/win32_controls.cc
   src/cef/browser_policy.cc
+  src/cef/extension_support.cc
   src/cef/render_metrics_bridge.cc
   src/cef/request_context_factory.cc
   src/cef/velox_cef_app.cc
@@ -54,6 +55,7 @@ set(VELOX_HEADERS
   src/browser/browser_window.h
   src/browser/win32_controls.h
   src/cef/browser_policy.h
+  src/cef/extension_support.h
   src/cef/render_metrics_bridge.h
   src/cef/request_context_factory.h
   src/cef/velox_cef_app.h
@@ -107,9 +109,13 @@ add_custom_command(
   TARGET velox
   POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:velox>/config"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:velox>/extensions"
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           "${CMAKE_CURRENT_SOURCE_DIR}/config/settings.json"
           "$<TARGET_FILE_DIR:velox>/config/settings.json"
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          "${CMAKE_CURRENT_SOURCE_DIR}/extensions"
+          "$<TARGET_FILE_DIR:velox>/extensions"
   VERBATIM)
 
 add_executable(settings_tests

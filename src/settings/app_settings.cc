@@ -1,5 +1,7 @@
 #include "settings/app_settings.h"
 
+#include <algorithm>
+
 #include "platform/win/file_utils.h"
 
 namespace velox::settings {
@@ -69,6 +71,21 @@ void FinalizeSettings(AppSettings& settings, const std::filesystem::path& base_d
   if (settings.optimization.cache_trim_target_percent > 95) {
     settings.optimization.cache_trim_target_percent = 95;
   }
+
+  for (auto& extension_dir : settings.extensions.unpacked_dirs) {
+    extension_dir = platform::MakeAbsolute(base_dir, extension_dir);
+  }
+  settings.extensions.unpacked_dirs.erase(
+      std::remove_if(settings.extensions.unpacked_dirs.begin(),
+                     settings.extensions.unpacked_dirs.end(),
+                     [](const std::filesystem::path& path) { return path.empty(); }),
+      settings.extensions.unpacked_dirs.end());
+
+  settings.extensions.extra_chromium_switches.erase(
+      std::remove_if(settings.extensions.extra_chromium_switches.begin(),
+                     settings.extensions.extra_chromium_switches.end(),
+                     [](const std::wstring& value) { return value.empty(); }),
+      settings.extensions.extra_chromium_switches.end());
 }
 
 }  // namespace velox::settings

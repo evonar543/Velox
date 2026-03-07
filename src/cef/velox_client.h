@@ -62,7 +62,10 @@ class VeloxClient : public CefClient,
                     public CefPermissionHandler,
                     public CefRequestHandler {
  public:
-  VeloxClient(int tab_id, BrowserEventDelegate* delegate, profiling::MetricsRecorder* metrics);
+  VeloxClient(int tab_id,
+              BrowserEventDelegate* delegate,
+              profiling::MetricsRecorder* metrics,
+              bool intercept_shell_shortcuts);
 
   CefRefPtr<CefDisplayHandler> GetDisplayHandler() override;
   CefRefPtr<CefKeyboardHandler> GetKeyboardHandler() override;
@@ -145,6 +148,7 @@ class VeloxClient : public CefClient,
   int tab_id_ = 0;
   BrowserEventDelegate* delegate_ = nullptr;
   profiling::MetricsRecorder* metrics_ = nullptr;
+  bool intercept_shell_shortcuts_ = true;
   bool first_main_frame_load_seen_ = false;
 
   IMPLEMENT_REFCOUNTING(VeloxClient);

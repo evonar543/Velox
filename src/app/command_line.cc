@@ -45,6 +45,18 @@ CommandLineOptions ParseCommandLine() {
       options.incognito = true;
       continue;
     }
+    if (argument == L"--enable-extensions") {
+      options.enable_extensions = true;
+      continue;
+    }
+    if (argument == L"--barebones-ui") {
+      options.barebones_ui = true;
+      continue;
+    }
+    if (argument == L"--extensions-page") {
+      options.open_extensions_page = true;
+      continue;
+    }
     if (argument == L"--quit-after-load") {
       options.quit_after_load = true;
       continue;
@@ -59,6 +71,12 @@ CommandLineOptions ParseCommandLine() {
       continue;
     }
     if (TryReadValue(argument, L"--dump-benchmarks=", &options.benchmark_output)) {
+      continue;
+    }
+    std::optional<std::wstring> extension_dir;
+    if (TryReadValue(argument, L"--extension-dir=", &extension_dir) && extension_dir.has_value()) {
+      options.enable_extensions = true;
+      options.extension_dirs.push_back(*extension_dir);
       continue;
     }
   }

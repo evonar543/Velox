@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 
+#include "cef/extension_support.h"
 #include "cef/render_metrics_bridge.h"
 
 namespace velox::cef {
@@ -96,6 +97,10 @@ void VeloxCefApp::SetRuntimeProfile(const app::RuntimeProfile& profile) {
   runtime_profile_ = profile;
 }
 
+void VeloxCefApp::SetAppSettings(const settings::AppSettings& settings) {
+  app_settings_ = settings;
+}
+
 CefRefPtr<CefBrowserProcessHandler> VeloxCefApp::GetBrowserProcessHandler() {
   return this;
 }
@@ -117,7 +122,6 @@ void VeloxCefApp::OnBeforeCommandLineProcessing(const CefString& process_type,
   AppendSwitchIfMissing(command_line, "disable-client-side-phishing-detection");
   AppendSwitchIfMissing(command_line, "disable-default-apps");
   AppendSwitchIfMissing(command_line, "disable-domain-reliability");
-  AppendSwitchIfMissing(command_line, "disable-extensions");
   AppendSwitchIfMissing(command_line, "disable-print-preview");
   AppendSwitchIfMissing(command_line, "disable-renderer-backgrounding");
   AppendSwitchIfMissing(command_line, "disable-sync");
@@ -131,6 +135,14 @@ void VeloxCefApp::OnBeforeCommandLineProcessing(const CefString& process_type,
 
   if (runtime_profile.prefer_low_memory_mode) {
     AppendDisableFeatures(command_line, "BackForwardCache");
+  }
+
+  if (process_type.empty() && app_settings_.has_value()) {
+    if (ExtensionsEnabled(*app_settings_)) {
+      ApplyExtensionSwitches(command_line, *app_settings_);
+    } else {
+      AppendSwitchIfMissing(command_line, "disable-extensions");
+    }
   }
 }
 

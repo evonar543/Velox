@@ -8,6 +8,12 @@ if (-not (Test-Path $Executable)) {
   throw "Executable not found: $Executable"
 }
 
+$runtimeRoot = Split-Path -Parent (Resolve-Path $Executable)
+$sampleExtensionManifest = Join-Path $runtimeRoot "extensions\\sample-hello\\manifest.json"
+if (-not (Test-Path $sampleExtensionManifest)) {
+  throw "Expected staged sample extension at $sampleExtensionManifest"
+}
+
 $process = Start-Process `
   -FilePath $Executable `
   -ArgumentList "--url=$Url", "--quit-after-load", "--dump-benchmarks=$Metrics" `

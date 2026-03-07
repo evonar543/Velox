@@ -236,6 +236,8 @@ class BrowserWindow : public cef::BrowserEventDelegate {
   void UpdateAddressCueText() const;
   void ReorderDraggedTab(int target_index);
   std::wstring TabTitleForDisplay(const TabState& tab) const;
+  bool UseBarebonesPrototypeUi() const;
+  bool UseChromeRuntime() const;
 
   HINSTANCE instance_ = nullptr;
   settings::AppSettings settings_;
