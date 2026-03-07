@@ -10,12 +10,14 @@ Velox is a minimal Chromium Embedded Framework browser shell for Windows. It sta
 - Multi-tab browsing with group accents for Focus, Build, and Chill workflows
 - Drag-to-reorder tabs without spawning extra windows
 - Right-side library panel for settings, history, and downloads
+- Persistent bookmarks panel with keyboard-driven save/open flows
 - Multi-process startup via `CefExecuteProcess` and `CefInitialize`
 - Auto-tuned runtime profile that scales Chromium process limits to the current machine
 - Aggressive browser-shell tuning via Chromium command-line switches for lower idle work
 - Omnibox-style address field that opens URLs directly and sends plain text to a configurable search engine
 - Quick search-engine switching between Google, DuckDuckGo, Bing, and Startpage, with the choice saved under the user profile
 - Local history persistence under the profile directory
+- Local bookmark persistence under the profile directory
 - Download capture with per-session progress tracking and automatic save targets under the profile downloads folder
 - Startup cache budgeting that trims oversized cache directories before Chromium starts
 - Lightweight predictive warmup that remembers hot hosts and primes DNS for faster repeat visits
@@ -76,6 +78,8 @@ Useful shortcuts:
 - `Ctrl+H` toggles the history panel
 - `Ctrl+J` toggles the downloads panel
 - `Ctrl+,` toggles the settings panel
+- `Ctrl+B` toggles the bookmarks panel
+- `Ctrl+D` saves or removes the current page from bookmarks
 - `Ctrl+R` or `F5` reloads
 - `Esc` stops loading
 - `Alt+Left` and `Alt+Right` navigate back/forward
@@ -151,7 +155,7 @@ Notes:
 - The Win32 shell keeps the UI cheap: owner-drawn buttons, common-controls progress bar, and direct layout without any extra widget framework.
 - The omnibox decides between URL navigation and search queries locally, then expands search terms through the configured search template.
 - The chrome reserves a right-side library panel for settings, history, and download state instead of opening extra native windows.
-- The profile badge and keyboard shortcuts open custom in-app surfaces for changing the search provider, reviewing recent history, and checking downloads without leaving the current page.
+- The profile badge and keyboard shortcuts open custom in-app surfaces for changing the search provider, reviewing recent history, opening saved pages, and checking downloads without leaving the current page.
 - The renderer process injects a tiny paint observer that reports `first-paint` and `first-contentful-paint` back to the browser process via `CefProcessMessage`.
 
 ## Known Limitations
@@ -159,6 +163,7 @@ Notes:
 - Tabs are grouped visually, but groups are still fixed presets instead of fully custom user-named groups
 - No Windows sandbox in v1
 - Downloads currently auto-save to the profile downloads folder instead of prompting for a location
+- Bookmarks are currently a flat saved-pages list without folders or sync
 - The built-in blocker uses a curated hostname/pattern list, not a full EasyList-scale rules engine yet
 - Predictive warmup currently primes DNS only; it does not keep hidden live pages or speculative renderers around
 - No custom networking stack or scheme handlers yet
@@ -172,4 +177,4 @@ Notes:
 2. Introduce Windows sandbox support and a dedicated helper subprocess if needed.
 3. Expand downloads into a fuller manager with pause/resume, open-folder actions, and save prompts.
 4. Add custom networking hooks for interception, metrics, and policy controls.
-5. Add richer settings, history search, and bookmarks without bloating the shell.
+5. Add richer settings, history search, and bookmark folders without bloating the shell.

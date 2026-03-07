@@ -443,6 +443,18 @@ bool VeloxClient::TryHandleShortcut(const CefKeyEvent& event) const {
         return true;
       }
       break;
+    case 'B':
+      if (control_down) {
+        delegate_->OnBrowserCommand(BrowserCommand::kToggleBookmarks);
+        return true;
+      }
+      break;
+    case 'D':
+      if (control_down) {
+        delegate_->OnBrowserCommand(BrowserCommand::kBookmarkCurrentPage);
+        return true;
+      }
+      break;
     case 'J':
       if (control_down) {
         delegate_->OnBrowserCommand(BrowserCommand::kToggleDownloads);

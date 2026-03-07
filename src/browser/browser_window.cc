@@ -323,6 +323,8 @@ std::wstring PanelModeLabel(BrowserWindow::PanelMode mode) {
       return L"History";
     case BrowserWindow::PanelMode::kDownloads:
       return L"Downloads";
+    case BrowserWindow::PanelMode::kBookmarks:
+      return L"Bookmarks";
     case BrowserWindow::PanelMode::kNone:
       break;
   }
@@ -345,6 +347,7 @@ BrowserWindow::BrowserWindow(HINSTANCE instance,
       site_predictor_(site_predictor) {
   InitializeTabGroups();
   LoadHistoryFromDisk();
+  LoadBookmarksFromDisk();
 }
 
 bool BrowserWindow::Create() {
@@ -970,7 +973,7 @@ std::wstring BrowserWindow::BuildDefaultStatusText() const {
   if (settings_.incognito_default) {
     return L"Incognito session ready";
   }
-  return L"Ready | Ctrl+T new tab | Ctrl+H history | Ctrl+J downloads";
+  return L"Ready | Ctrl+D save page | Ctrl+B bookmarks | Ctrl+J downloads";
 }
 
 std::wstring BrowserWindow::BuildPrivacyBadgeText() const {
@@ -1251,6 +1254,12 @@ void BrowserWindow::HandleBrowserCommand(cef::BrowserCommand command) {
       break;
     case cef::BrowserCommand::kToggleSettings:
       TogglePanel(PanelMode::kSettings);
+      break;
+    case cef::BrowserCommand::kToggleBookmarks:
+      TogglePanel(PanelMode::kBookmarks);
+      break;
+    case cef::BrowserCommand::kBookmarkCurrentPage:
+      ToggleCurrentPageBookmark();
       break;
   }
 }
@@ -1565,6 +1574,16 @@ void BrowserWindow::DrawTabStrip(HDC device_context) {
     RECT title_rect = visual.tab_rect;
     title_rect.left += 14;
     title_rect.right = visual.close_rect.left - 6;
+    if (IsBookmarked(tab->url)) {
+      RECT bookmark_rect = MakeRect(title_rect.left, title_rect.top + 10, title_rect.left + 10, title_rect.top + 20);
+      DrawRoundedBlock(device_context,
+                       bookmark_rect,
+                       group == nullptr ? kProgressFillColor : group->accent,
+                       group == nullptr ? kProgressFillColor : group->accent,
+                       6,
+                       true);
+      title_rect.left += 16;
+    }
     DrawTextBlock(device_context,
                   tab_font_ != nullptr ? tab_font_ : ui_font_bold_,
                   kPrimaryTextColor,
@@ -1617,7 +1636,9 @@ void BrowserWindow::DrawLibraryPanel(HDC device_context) {
                 panel_mode_ == PanelMode::kSettings ? L"runtime, privacy, and search controls"
                                                     : panel_mode_ == PanelMode::kHistory
                                                           ? L"recent places you've opened in Velox"
-                                                          : L"active and finished downloads",
+                                                          : panel_mode_ == PanelMode::kDownloads
+                                                                ? L"active and finished downloads"
+                                                                : L"saved sites for quick launch",
                 DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 
   DrawSettingsPanel(device_context);
@@ -1625,9 +1646,13 @@ void BrowserWindow::DrawLibraryPanel(HDC device_context) {
 
 void BrowserWindow::DrawSettingsPanel(HDC device_context) {
   RECT tabs_row = MakeRect(settings_panel_rect_.left + 18, settings_panel_rect_.top + 52, settings_panel_rect_.right - 18, settings_panel_rect_.top + 84);
+  const int inner_tab_width = std::max<int>(
+      68,
+      static_cast<int>(tabs_row.right - tabs_row.left - static_cast<int>(action_visuals_.size() - 1) * 8) /
+          std::max(1, static_cast<int>(action_visuals_.size())));
   int tab_left = tabs_row.left;
   for (const auto& action : action_visuals_) {
-    RECT tab_rect = MakeRect(tab_left, tabs_row.top, tab_left + 92, tabs_row.bottom);
+    RECT tab_rect = MakeRect(tab_left, tabs_row.top, tab_left + inner_tab_width, tabs_row.bottom);
     const bool active = panel_mode_ == action.mode;
     DrawRoundedBlock(device_context,
                      tab_rect,
@@ -1681,6 +1706,49 @@ void BrowserWindow::DrawSettingsPanel(HDC device_context) {
                     kPanelMutedTextColor,
                     meta_rect,
                     entry.host + L"  |  " + entry.visited_at,
+                    DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+    }
+    return;
+  }
+
+  if (panel_mode_ == PanelMode::kBookmarks) {
+    if (bookmark_entries_.empty()) {
+      RECT empty_rect = MakeRect(settings_panel_rect_.left + 18, tabs_row.bottom + 18, settings_panel_rect_.right - 18, tabs_row.bottom + 44);
+      DrawTextBlock(device_context,
+                    ui_font_,
+                    kPanelMutedTextColor,
+                    empty_rect,
+                    L"No saved sites yet. Press Ctrl+D on a page or use the bookmarks chip to pin one.",
+                    DT_LEFT | DT_WORDBREAK);
+      return;
+    }
+
+    for (const auto& visual : bookmark_visuals_) {
+      if (visual.index >= bookmark_entries_.size()) {
+        continue;
+      }
+      const auto& entry = bookmark_entries_[visual.index];
+      DrawRoundedBlock(device_context, visual.rect, RGB(248, 241, 231), RGB(220, 205, 183), 16);
+      RECT title_rect = visual.rect;
+      title_rect.left += 12;
+      title_rect.top += 10;
+      title_rect.right -= 12;
+      title_rect.bottom = title_rect.top + 20;
+      DrawTextBlock(device_context,
+                    ui_font_bold_,
+                    kPrimaryTextColor,
+                    title_rect,
+                    entry.title.empty() ? entry.host : entry.title,
+                    DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+
+      RECT meta_rect = title_rect;
+      meta_rect.top = title_rect.bottom + 2;
+      meta_rect.bottom = meta_rect.top + 16;
+      DrawTextBlock(device_context,
+                    ui_font_,
+                    kPanelMutedTextColor,
+                    meta_rect,
+                    entry.host + L"  |  saved " + entry.saved_at,
                     DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     }
     return;
@@ -1839,13 +1907,14 @@ void BrowserWindow::RebuildChromeRects(const RECT& client_rect) {
                                   client_rect.bottom - 12);
 
   action_visuals_.clear();
-  const int action_width = 88;
+  const int action_width = 76;
   const int action_height = groups_strip_rect_.bottom - groups_strip_rect_.top;
   int action_left = new_tab_button_rect_.left - 10 - action_width;
-  const std::array<ActionVisual, 3> actions = {{
+  const std::array<ActionVisual, 4> actions = {{
       {PanelMode::kSettings, L"settings", {}},
       {PanelMode::kHistory, L"history", {}},
       {PanelMode::kDownloads, L"downloads", {}},
+      {PanelMode::kBookmarks, L"saved", {}},
   }};
   for (int index = static_cast<int>(actions.size()) - 1; index >= 0; --index) {
     const auto& action = actions[static_cast<size_t>(index)];
@@ -1934,16 +2003,28 @@ void BrowserWindow::RebuildChromeRects(const RECT& client_rect) {
     download_visuals_.push_back(DownloadVisual{download_entries_[index].id, rect});
     download_top = rect.bottom + 10;
   }
+
+  bookmark_visuals_.clear();
+  int bookmark_top = settings_panel_rect_.top + 96;
+  for (size_t index = 0; index < std::min<size_t>(bookmark_entries_.size(), 7); ++index) {
+    RECT rect = MakeRect(settings_panel_rect_.left + 18, bookmark_top, settings_panel_rect_.right - 18, bookmark_top + 58);
+    bookmark_visuals_.push_back(BookmarkVisual{index, rect});
+    bookmark_top = rect.bottom + 10;
+  }
 }
 
 void BrowserWindow::OnChromeClick(POINT point) {
   if (IsPanelOpen()) {
     const int tabs_top = settings_panel_rect_.top + 52;
-    for (const auto& action : action_visuals_) {
-      const RECT tab_rect = MakeRect(settings_panel_rect_.left + 18 + static_cast<int>(&action - action_visuals_.data()) * 100,
-                                     tabs_top,
-                                     settings_panel_rect_.left + 18 + static_cast<int>(&action - action_visuals_.data()) * 100 + 92,
-                                     tabs_top + 32);
+    const int inner_tab_width = std::max<int>(
+        68,
+        static_cast<int>(settings_panel_rect_.right - settings_panel_rect_.left - 36 -
+                         static_cast<int>(action_visuals_.size() - 1) * 8) /
+            std::max(1, static_cast<int>(action_visuals_.size())));
+    for (size_t action_index = 0; action_index < action_visuals_.size(); ++action_index) {
+      const auto& action = action_visuals_[action_index];
+      const int left = settings_panel_rect_.left + 18 + static_cast<int>(action_index) * (inner_tab_width + 8);
+      const RECT tab_rect = MakeRect(left, tabs_top, left + inner_tab_width, tabs_top + 32);
       if (ContainsPoint(tab_rect, point)) {
         OpenPanel(action.mode);
         return;
@@ -1973,11 +2054,19 @@ void BrowserWindow::OnChromeClick(POINT point) {
           const auto* download = FindDownload(visual.id);
           if (download != nullptr) {
             if (download->is_complete) {
-              ShellExecuteW(hwnd_, L"open", download->full_path.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+              const std::wstring explorer_args = L"/select,\"" + download->full_path + L"\"";
+              ShellExecuteW(hwnd_, L"open", L"explorer.exe", explorer_args.c_str(), nullptr, SW_SHOWNORMAL);
             } else {
               SetStatusText(download->status_text);
             }
           }
+          return;
+        }
+      }
+    } else if (panel_mode_ == PanelMode::kBookmarks) {
+      for (const auto& visual : bookmark_visuals_) {
+        if (ContainsPoint(visual.rect, point)) {
+          ActivateBookmarkEntry(visual.index);
           return;
         }
       }
@@ -2236,6 +2325,41 @@ void BrowserWindow::SaveHistoryToDisk() const {
   }
 }
 
+void BrowserWindow::LoadBookmarksFromDisk() {
+  bookmark_entries_.clear();
+  std::wifstream stream(settings_.paths.profile_dir / L"bookmarks.tsv");
+  if (!stream.is_open()) {
+    return;
+  }
+
+  std::wstring line;
+  while (std::getline(stream, line)) {
+    const auto parsed = ParseHistoryStoreLine(line);
+    if (!parsed.has_value()) {
+      continue;
+    }
+    bookmark_entries_.push_back(BookmarkEntry{(*parsed)[2], (*parsed)[1], (*parsed)[3], (*parsed)[0]});
+    if (bookmark_entries_.size() >= kMaxHistoryEntries) {
+      break;
+    }
+  }
+}
+
+void BrowserWindow::SaveBookmarksToDisk() const {
+  if (!platform::EnsureDirectory(settings_.paths.profile_dir)) {
+    return;
+  }
+
+  std::wofstream stream(settings_.paths.profile_dir / L"bookmarks.tsv", std::ios::trunc);
+  if (!stream.is_open()) {
+    return;
+  }
+
+  for (const auto& entry : bookmark_entries_) {
+    stream << HistoryStoreLine(entry.saved_at, entry.url, entry.title, entry.host) << L"\n";
+  }
+}
+
 void BrowserWindow::ActivateHistoryEntry(size_t index) {
   if (index >= history_entries_.size()) {
     return;
@@ -2251,6 +2375,61 @@ void BrowserWindow::ActivateHistoryEntry(size_t index) {
   settings_panel_open_ = false;
   ResizeBrowserHosts();
   InvalidateRect(hwnd_, nullptr, FALSE);
+}
+
+void BrowserWindow::ActivateBookmarkEntry(size_t index) {
+  if (index >= bookmark_entries_.size()) {
+    return;
+  }
+  if (active_tab() == nullptr) {
+    return;
+  }
+
+  SetAddressBarText(bookmark_entries_[index].url);
+  controller_.Navigate(bookmark_entries_[index].url);
+  SetStatusText(L"Opened bookmark: " + bookmark_entries_[index].host);
+  panel_mode_ = PanelMode::kNone;
+  settings_panel_open_ = false;
+  ResizeBrowserHosts();
+  InvalidateRect(hwnd_, nullptr, FALSE);
+}
+
+void BrowserWindow::ToggleCurrentPageBookmark() {
+  TabState* tab = active_tab();
+  if (tab == nullptr || tab->url.empty() || tab->url == L"about:blank") {
+    return;
+  }
+
+  const auto existing = std::find_if(bookmark_entries_.begin(),
+                                     bookmark_entries_.end(),
+                                     [&](const BookmarkEntry& entry) { return entry.url == tab->url; });
+  if (existing != bookmark_entries_.end()) {
+    const std::wstring host = existing->host;
+    bookmark_entries_.erase(existing);
+    SaveBookmarksToDisk();
+    SetStatusText(L"Removed bookmark: " + host);
+  } else {
+    bookmark_entries_.insert(bookmark_entries_.begin(),
+                             BookmarkEntry{TabTitleForDisplay(*tab), tab->url, ExtractDisplayHost(tab->url), CurrentTimestampLabel()});
+    if (bookmark_entries_.size() > kMaxHistoryEntries) {
+      bookmark_entries_.resize(kMaxHistoryEntries);
+    }
+    SaveBookmarksToDisk();
+    SetStatusText(L"Saved bookmark: " + TabTitleForDisplay(*tab));
+  }
+
+  if (hwnd_ != nullptr) {
+    RECT client_rect{};
+    GetClientRect(hwnd_, &client_rect);
+    RebuildChromeRects(client_rect);
+    InvalidateRect(hwnd_, nullptr, FALSE);
+  }
+}
+
+bool BrowserWindow::IsBookmarked(const std::wstring& url) const {
+  return std::any_of(bookmark_entries_.begin(),
+                     bookmark_entries_.end(),
+                     [&](const BookmarkEntry& entry) { return entry.url == url; });
 }
 
 BrowserWindow::DownloadEntry* BrowserWindow::FindDownload(int download_id) {

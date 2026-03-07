@@ -26,6 +26,7 @@ class BrowserWindow : public cef::BrowserEventDelegate {
     kSettings,
     kHistory,
     kDownloads,
+    kBookmarks,
   };
 
   BrowserWindow(HINSTANCE instance,
@@ -132,6 +133,18 @@ class BrowserWindow : public cef::BrowserEventDelegate {
     RECT rect{};
   };
 
+  struct BookmarkEntry {
+    std::wstring title;
+    std::wstring url;
+    std::wstring host;
+    std::wstring saved_at;
+  };
+
+  struct BookmarkVisual {
+    size_t index = 0;
+    RECT rect{};
+  };
+
   static LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
   LRESULT HandleMessage(UINT message, WPARAM wparam, LPARAM lparam);
 
@@ -204,10 +217,15 @@ class BrowserWindow : public cef::BrowserEventDelegate {
   void RecordHistoryVisit(const TabState& tab);
   void LoadHistoryFromDisk();
   void SaveHistoryToDisk() const;
+  void LoadBookmarksFromDisk();
+  void SaveBookmarksToDisk() const;
   void OpenPanel(PanelMode mode);
   void TogglePanel(PanelMode mode);
   bool IsPanelOpen() const;
   void ActivateHistoryEntry(size_t index);
+  void ActivateBookmarkEntry(size_t index);
+  void ToggleCurrentPageBookmark();
+  bool IsBookmarked(const std::wstring& url) const;
   DownloadEntry* FindDownload(int download_id);
   const DownloadEntry* FindDownload(int download_id) const;
   std::filesystem::path DownloadsDir() const;
@@ -267,6 +285,8 @@ class BrowserWindow : public cef::BrowserEventDelegate {
   std::vector<HistoryVisual> history_visuals_;
   std::vector<DownloadEntry> download_entries_;
   std::vector<DownloadVisual> download_visuals_;
+  std::vector<BookmarkEntry> bookmark_entries_;
+  std::vector<BookmarkVisual> bookmark_visuals_;
 
   std::wstring status_text_;
   std::wstring current_host_;

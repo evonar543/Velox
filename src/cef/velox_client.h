@@ -23,6 +23,8 @@ enum class BrowserCommand {
   kToggleHistory,
   kToggleDownloads,
   kToggleSettings,
+  kToggleBookmarks,
+  kBookmarkCurrentPage,
 };
 
 class BrowserEventDelegate {
