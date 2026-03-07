@@ -38,43 +38,43 @@ constexpr UINT kMessageOpenTab = WM_APP + 10;
 constexpr int kMinWindowWidth = 1120;
 constexpr int kMinWindowHeight = 760;
 
-constexpr COLORREF kToolbarColor = RGB(248, 243, 234);
-constexpr COLORREF kToolbarBorderColor = RGB(220, 208, 191);
-constexpr COLORREF kWindowColor = RGB(255, 252, 247);
-constexpr COLORREF kPrimaryTextColor = RGB(31, 28, 25);
-constexpr COLORREF kSecondaryTextColor = RGB(110, 101, 91);
-constexpr COLORREF kAddressFillColor = RGB(255, 251, 245);
-constexpr COLORREF kAddressBorderColor = RGB(209, 191, 169);
-constexpr COLORREF kAddressTextColor = RGB(43, 37, 31);
-constexpr COLORREF kNavFillColor = RGB(255, 249, 241);
-constexpr COLORREF kNavHoverFillColor = RGB(245, 231, 212);
-constexpr COLORREF kNavBorderColor = RGB(214, 198, 177);
-constexpr COLORREF kNavPressedColor = RGB(232, 214, 192);
-constexpr COLORREF kProfileFillColor = RGB(233, 239, 251);
-constexpr COLORREF kProfileBorderColor = RGB(159, 180, 220);
-constexpr COLORREF kProfileTextColor = RGB(34, 63, 119);
-constexpr COLORREF kPrivacyFillColor = RGB(228, 244, 234);
-constexpr COLORREF kPrivacyBorderColor = RGB(144, 188, 158);
-constexpr COLORREF kPrivacyTextColor = RGB(34, 92, 58);
-constexpr COLORREF kTabFillColor = RGB(243, 235, 223);
-constexpr COLORREF kTabActiveFillColor = RGB(255, 251, 245);
-constexpr COLORREF kTabBorderColor = RGB(214, 198, 177);
-constexpr COLORREF kTabActiveBorderColor = RGB(176, 147, 112);
-constexpr COLORREF kNewTabFillColor = RGB(236, 225, 209);
-constexpr COLORREF kProgressFillColor = RGB(198, 128, 59);
-constexpr COLORREF kSettingsPanelFillColor = RGB(255, 250, 243);
-constexpr COLORREF kSettingsPanelBorderColor = RGB(198, 181, 156);
-constexpr COLORREF kSettingsLabelColor = RGB(92, 82, 70);
-constexpr COLORREF kSettingsOptionFillColor = RGB(244, 236, 225);
-constexpr COLORREF kSettingsOptionActiveFillColor = RGB(218, 229, 250);
-constexpr COLORREF kSettingsOptionActiveBorderColor = RGB(114, 146, 204);
-constexpr COLORREF kSettingsOptionActiveTextColor = RGB(26, 56, 112);
-constexpr COLORREF kPanelFillColor = RGB(255, 248, 238);
-constexpr COLORREF kPanelBorderColor = RGB(207, 188, 160);
-constexpr COLORREF kPanelTabFillColor = RGB(242, 232, 217);
-constexpr COLORREF kPanelTabActiveFillColor = RGB(227, 238, 252);
-constexpr COLORREF kPanelTabActiveBorderColor = RGB(117, 145, 191);
-constexpr COLORREF kPanelMutedTextColor = RGB(117, 107, 93);
+constexpr COLORREF kToolbarColor = RGB(244, 248, 252);
+constexpr COLORREF kToolbarBorderColor = RGB(212, 221, 233);
+constexpr COLORREF kWindowColor = RGB(247, 250, 255);
+constexpr COLORREF kPrimaryTextColor = RGB(26, 35, 48);
+constexpr COLORREF kSecondaryTextColor = RGB(96, 108, 128);
+constexpr COLORREF kAddressFillColor = RGB(255, 255, 255);
+constexpr COLORREF kAddressBorderColor = RGB(184, 196, 216);
+constexpr COLORREF kAddressTextColor = RGB(30, 40, 54);
+constexpr COLORREF kNavFillColor = RGB(255, 255, 255);
+constexpr COLORREF kNavHoverFillColor = RGB(236, 243, 252);
+constexpr COLORREF kNavBorderColor = RGB(204, 216, 231);
+constexpr COLORREF kNavPressedColor = RGB(224, 235, 248);
+constexpr COLORREF kProfileFillColor = RGB(232, 242, 255);
+constexpr COLORREF kProfileBorderColor = RGB(143, 173, 220);
+constexpr COLORREF kProfileTextColor = RGB(39, 78, 138);
+constexpr COLORREF kPrivacyFillColor = RGB(231, 247, 239);
+constexpr COLORREF kPrivacyBorderColor = RGB(131, 186, 154);
+constexpr COLORREF kPrivacyTextColor = RGB(33, 96, 63);
+constexpr COLORREF kTabFillColor = RGB(236, 241, 248);
+constexpr COLORREF kTabActiveFillColor = RGB(255, 255, 255);
+constexpr COLORREF kTabBorderColor = RGB(206, 217, 231);
+constexpr COLORREF kTabActiveBorderColor = RGB(93, 129, 194);
+constexpr COLORREF kNewTabFillColor = RGB(228, 236, 247);
+constexpr COLORREF kProgressFillColor = RGB(78, 134, 227);
+constexpr COLORREF kSettingsPanelFillColor = RGB(255, 255, 255);
+constexpr COLORREF kSettingsPanelBorderColor = RGB(205, 216, 231);
+constexpr COLORREF kSettingsLabelColor = RGB(99, 111, 131);
+constexpr COLORREF kSettingsOptionFillColor = RGB(241, 246, 252);
+constexpr COLORREF kSettingsOptionActiveFillColor = RGB(232, 242, 255);
+constexpr COLORREF kSettingsOptionActiveBorderColor = RGB(126, 156, 209);
+constexpr COLORREF kSettingsOptionActiveTextColor = RGB(35, 74, 136);
+constexpr COLORREF kPanelFillColor = RGB(255, 255, 255);
+constexpr COLORREF kPanelBorderColor = RGB(205, 216, 231);
+constexpr COLORREF kPanelTabFillColor = RGB(241, 246, 252);
+constexpr COLORREF kPanelTabActiveFillColor = RGB(232, 242, 255);
+constexpr COLORREF kPanelTabActiveBorderColor = RGB(126, 156, 209);
+constexpr COLORREF kPanelMutedTextColor = RGB(103, 115, 136);
 constexpr int kPanelWidth = 348;
 constexpr size_t kMaxHistoryEntries = 120;
 
@@ -591,6 +591,13 @@ LRESULT BrowserWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
             NavigateFromAddressBar();
             return 0;
           }
+          if (notification_code == win32::kAddressEscapeNotification) {
+            const TabState* tab = active_tab();
+            SetAddressBarText(tab == nullptr ? settings_.startup_url : tab->url);
+            SendMessageW(address_bar_, EM_SETSEL, 0, -1);
+            SetStatusText(L"Back to the current page address.");
+            return 0;
+          }
           if (notification_code == EN_SETFOCUS) {
             SendMessageW(address_bar_, EM_SETSEL, 0, -1);
             return 0;
@@ -728,11 +735,11 @@ LRESULT BrowserWindow::HandleMessage(UINT message, WPARAM wparam, LPARAM lparam)
 void BrowserWindow::CreateControls() {
   brand_label_ = CreateWindowExW(0, L"STATIC", L"Velox", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, hwnd_,
                                  reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kBrandLabelId)), instance_, nullptr);
-  back_button_ = CreateWindowExW(0, L"BUTTON", L"<", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
+  back_button_ = CreateWindowExW(0, L"BUTTON", L"Back", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
                                  reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kBackButtonId)), instance_, nullptr);
-  forward_button_ = CreateWindowExW(0, L"BUTTON", L">", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
+  forward_button_ = CreateWindowExW(0, L"BUTTON", L"Next", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
                                     reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kForwardButtonId)), instance_, nullptr);
-  reload_button_ = CreateWindowExW(0, L"BUTTON", L"Reload", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
+  reload_button_ = CreateWindowExW(0, L"BUTTON", L"Refresh", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
                                    reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kReloadButtonId)), instance_, nullptr);
   stop_button_ = CreateWindowExW(0, L"BUTTON", L"Stop", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW, 0, 0, 0, 0, hwnd_,
                                  reinterpret_cast<HMENU>(static_cast<INT_PTR>(win32::kStopButtonId)), instance_, nullptr);
@@ -741,7 +748,7 @@ void BrowserWindow::CreateControls() {
   address_bar_ = CreateWindowExW(0,
                                  L"EDIT",
                                  settings_.startup_url.c_str(),
-                                 WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
+                                 WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL | ES_NOHIDESEL,
                                  0,
                                  0,
                                  0,
@@ -761,9 +768,9 @@ void BrowserWindow::CreateControls() {
 
   win32::InstallAddressBarSubclass(address_bar_, hwnd_);
   UpdateAddressCueText();
-  SendMessageW(address_bar_, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(6, 6));
+  SendMessageW(address_bar_, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(10, 10));
   SendMessageW(progress_bar_, PBM_SETRANGE32, 0, 100);
-  SendMessageW(progress_bar_, PBM_SETBKCOLOR, 0, static_cast<LPARAM>(RGB(237, 230, 219)));
+  SendMessageW(progress_bar_, PBM_SETBKCOLOR, 0, static_cast<LPARAM>(RGB(231, 237, 245)));
   SendMessageW(progress_bar_, PBM_SETBARCOLOR, 0, static_cast<LPARAM>(kProgressFillColor));
 
   status_text_ = BuildDefaultStatusText();
@@ -871,19 +878,20 @@ void BrowserWindow::CreateThemeResources() {
   LOGFONTW font{};
   font.lfHeight = -15;
   font.lfWeight = FW_NORMAL;
-  wcscpy_s(font.lfFaceName, L"Segoe UI");
+  wcscpy_s(font.lfFaceName, L"Segoe UI Variable Text");
   ui_font_ = CreateFontIndirectW(&font);
 
   font.lfWeight = FW_SEMIBOLD;
   ui_font_bold_ = CreateFontIndirectW(&font);
 
-  font.lfHeight = -22;
-  wcscpy_s(font.lfFaceName, L"Bahnschrift");
+  font.lfHeight = -23;
+  font.lfWeight = FW_BOLD;
+  wcscpy_s(font.lfFaceName, L"Segoe UI Variable Display");
   title_font_ = CreateFontIndirectW(&font);
 
   font.lfHeight = -14;
   font.lfWeight = FW_SEMIBOLD;
-  wcscpy_s(font.lfFaceName, L"Segoe UI");
+  wcscpy_s(font.lfFaceName, L"Segoe UI Variable Text");
   tab_font_ = CreateFontIndirectW(&font);
 
   toolbar_brush_ = CreateSolidBrush(kToolbarColor);
@@ -966,22 +974,22 @@ std::wstring BrowserWindow::BuildDefaultStatusText() const {
   const TabState* tab = active_tab();
   const TabGroup* group = tab == nullptr ? nullptr : FindGroup(tab->group_id);
   if (tab != nullptr && !tab->url.empty() && tab->url != L"about:blank") {
-    std::wstring text = L"You're viewing ";
+    std::wstring text = L"Now browsing ";
     const std::wstring host = ExtractDisplayHost(tab->url);
     text += host.empty() ? TabTitleForDisplay(*tab) : host;
     if (group != nullptr) {
-      text += L" | " + group->label + L" group";
+      text += L"  |  " + group->label + L" tab group";
     }
     return text;
   }
   if (settings_.incognito_default) {
-    return L"Incognito session is ready.";
+    return L"Incognito is ready. Search or open a URL when you are.";
   }
-  return L"Ready to browse | Ctrl+D saves a page | Ctrl+B opens bookmarks";
+  return L"Ready when you are. Ctrl+L focuses search, Ctrl+D saves a page.";
 }
 
 std::wstring BrowserWindow::BuildPrivacyBadgeText() const {
-  return settings_.incognito_default ? L"Incognito" : L"Shield";
+  return settings_.incognito_default ? L"Incognito" : L"Shield on";
 }
 
 std::wstring BrowserWindow::BuildProfileBadgeText() const {
@@ -1014,9 +1022,9 @@ LRESULT BrowserWindow::HandleDrawItem(const DRAWITEMSTRUCT* draw_item) {
       text_color = kPrivacyTextColor;
     }
   } else if (is_disabled) {
-    fill_color = RGB(243, 236, 227);
-    border_color = RGB(225, 214, 201);
-    text_color = RGB(155, 145, 135);
+    fill_color = RGB(239, 243, 249);
+    border_color = RGB(217, 226, 238);
+    text_color = RGB(145, 156, 174);
   } else if (is_pressed) {
     fill_color = kNavPressedColor;
   } else if ((draw_item->itemState & ODS_HOTLIGHT) != 0) {
@@ -1508,8 +1516,8 @@ void BrowserWindow::DrawCustomChrome(HDC device_context, const RECT& client_rect
   toolbar_rect.bottom = std::min<LONG>(toolbar_rect.bottom, win32::kToolbarHeight);
   FillRect(device_context, &toolbar_rect, toolbar_brush_ != nullptr ? toolbar_brush_ : reinterpret_cast<HBRUSH>(COLOR_BTNFACE + 1));
 
-  RECT brand_glow = MakeRect(layout.brand.left - 4, layout.brand.top - 8, layout.brand.right + 60, layout.brand.bottom + 8);
-  DrawRoundedBlock(device_context, brand_glow, RGB(240, 231, 214), RGB(240, 231, 214), 18, true);
+  RECT brand_glow = MakeRect(layout.brand.left - 4, layout.brand.top - 8, layout.brand.right + 56, layout.brand.bottom + 8);
+  DrawRoundedBlock(device_context, brand_glow, RGB(232, 241, 252), RGB(232, 241, 252), 18, true);
 
   HPEN border_pen = CreatePen(PS_SOLID, 1, kToolbarBorderColor);
   HGDIOBJ previous_pen = SelectObject(device_context, border_pen);
@@ -1519,6 +1527,18 @@ void BrowserWindow::DrawCustomChrome(HDC device_context, const RECT& client_rect
   DeleteObject(border_pen);
 
   DrawRoundedBlock(device_context, layout.address_shell, kAddressFillColor, kAddressBorderColor, 18);
+  RECT provider_rect = layout.address_shell;
+  provider_rect.left += 8;
+  provider_rect.top += 8;
+  provider_rect.right = provider_rect.left + win32::kAddressProviderWidth - 20;
+  provider_rect.bottom -= 8;
+  DrawRoundedBlock(device_context, provider_rect, RGB(239, 245, 252), RGB(203, 216, 234), 14);
+  DrawTextBlock(device_context,
+                ui_font_bold_,
+                kProfileTextColor,
+                provider_rect,
+                settings_.search.provider_name,
+                DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
   DrawGroupStrip(device_context);
   DrawTabStrip(device_context);
   DrawActionStrip(device_context);
@@ -1528,7 +1548,7 @@ void BrowserWindow::DrawCustomChrome(HDC device_context, const RECT& client_rect
   DrawTextBlock(device_context, ui_font_bold_, kPrimaryTextColor, new_button_rect, L"+", DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
   RECT eyebrow_rect = MakeRect(layout.brand.left + 2, layout.brand.top - 16, layout.brand.left + 140, layout.brand.top + 2);
-  DrawTextBlock(device_context, ui_font_, kPanelMutedTextColor, eyebrow_rect, L"speed shell / chromium core", DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+  DrawTextBlock(device_context, ui_font_, kPanelMutedTextColor, eyebrow_rect, L"fast shell / chromium core", DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
   if (IsPanelOpen()) {
     DrawLibraryPanel(device_context);
@@ -1544,7 +1564,7 @@ void BrowserWindow::DrawGroupStrip(HDC device_context) {
     }
 
     const bool active = group->id == active_group_id;
-    const COLORREF fill = active ? group->accent : RGB(241, 232, 219);
+    const COLORREF fill = active ? group->accent : RGB(236, 241, 248);
     const COLORREF text_color = active ? RGB(255, 255, 255) : kPrimaryTextColor;
     DrawRoundedBlock(device_context, visual.rect, fill, group->accent, 14, active);
     DrawTextBlock(device_context, ui_font_bold_, text_color, visual.rect, group->label, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -1693,7 +1713,7 @@ void BrowserWindow::DrawSettingsPanel(HDC device_context) {
         continue;
       }
       const auto& entry = history_entries_[visual.index];
-      DrawRoundedBlock(device_context, visual.rect, RGB(248, 241, 231), RGB(220, 205, 183), 16);
+      DrawRoundedBlock(device_context, visual.rect, RGB(247, 250, 255), RGB(214, 224, 237), 16);
       RECT title_rect = visual.rect;
       title_rect.left += 12;
       title_rect.top += 10;
@@ -1736,7 +1756,7 @@ void BrowserWindow::DrawSettingsPanel(HDC device_context) {
         continue;
       }
       const auto& entry = bookmark_entries_[visual.index];
-      DrawRoundedBlock(device_context, visual.rect, RGB(248, 241, 231), RGB(220, 205, 183), 16);
+      DrawRoundedBlock(device_context, visual.rect, RGB(247, 250, 255), RGB(214, 224, 237), 16);
       RECT title_rect = visual.rect;
       title_rect.left += 12;
       title_rect.top += 10;
@@ -1780,7 +1800,7 @@ void BrowserWindow::DrawSettingsPanel(HDC device_context) {
         continue;
       }
 
-      DrawRoundedBlock(device_context, visual.rect, RGB(248, 241, 231), RGB(220, 205, 183), 16);
+      DrawRoundedBlock(device_context, visual.rect, RGB(247, 250, 255), RGB(214, 224, 237), 16);
       RECT title_rect = visual.rect;
       title_rect.left += 12;
       title_rect.top += 10;
@@ -1804,7 +1824,7 @@ void BrowserWindow::DrawSettingsPanel(HDC device_context) {
                     DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 
       RECT bar_rect = MakeRect(visual.rect.left + 12, visual.rect.bottom - 16, visual.rect.right - 12, visual.rect.bottom - 10);
-      DrawRoundedBlock(device_context, bar_rect, RGB(233, 225, 215), RGB(233, 225, 215), 8, true);
+      DrawRoundedBlock(device_context, bar_rect, RGB(229, 236, 246), RGB(229, 236, 246), 8, true);
       if (!download->is_canceled) {
         RECT fill_rect = bar_rect;
         const int fill_width = std::max<int>(
@@ -1823,7 +1843,7 @@ void BrowserWindow::DrawSettingsPanel(HDC device_context) {
   RECT card_four = MakeRect(card_three.right + 12, card_three.top, settings_panel_rect_.right - 18, card_three.bottom);
 
   const auto draw_card = [&](const RECT& rect, const std::wstring& label, const std::wstring& value, const std::wstring& helper) {
-    DrawRoundedBlock(device_context, rect, RGB(248, 241, 231), RGB(220, 205, 183), 18);
+    DrawRoundedBlock(device_context, rect, RGB(247, 250, 255), RGB(214, 224, 237), 18);
     RECT label_rect = rect;
     label_rect.left += 12;
     label_rect.top += 10;
@@ -1915,14 +1935,14 @@ void BrowserWindow::RebuildChromeRects(const RECT& client_rect) {
                                   client_rect.bottom - 12);
 
   action_visuals_.clear();
-  const int action_width = 76;
+  const int action_width = 92;
   const int action_height = groups_strip_rect_.bottom - groups_strip_rect_.top;
   int action_left = new_tab_button_rect_.left - 10 - action_width;
   const std::array<ActionVisual, 4> actions = {{
-      {PanelMode::kSettings, L"settings", {}},
-      {PanelMode::kHistory, L"history", {}},
-      {PanelMode::kDownloads, L"downloads", {}},
-      {PanelMode::kBookmarks, L"saved", {}},
+      {PanelMode::kSettings, L"Settings", {}},
+      {PanelMode::kHistory, L"History", {}},
+      {PanelMode::kDownloads, L"Downloads", {}},
+      {PanelMode::kBookmarks, L"Saved", {}},
   }};
   for (int index = static_cast<int>(actions.size()) - 1; index >= 0; --index) {
     const auto& action = actions[static_cast<size_t>(index)];
@@ -2263,7 +2283,7 @@ void BrowserWindow::UpdateAddressCueText() const {
     return;
   }
 
-  const std::wstring cue_text = L"Search " + settings_.search.provider_name + L" or enter address";
+  const std::wstring cue_text = L"Search " + settings_.search.provider_name + L" or enter a web address";
   SendMessageW(address_bar_, EM_SETCUEBANNER, TRUE, reinterpret_cast<LPARAM>(cue_text.c_str()));
 }
 

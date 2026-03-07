@@ -12,21 +12,21 @@ namespace velox::browser::win32 {
 
 namespace {
 
-constexpr int kPadding = 14;
-constexpr int kBackButtonWidth = 54;
-constexpr int kForwardButtonWidth = 54;
-constexpr int kReloadButtonWidth = 72;
-constexpr int kStopButtonWidth = 56;
-constexpr int kHomeButtonWidth = 62;
-constexpr int kControlHeight = 36;
-constexpr int kBrandWidth = 96;
-constexpr int kBadgeWidth = 96;
+constexpr int kPadding = 16;
+constexpr int kBackButtonWidth = 64;
+constexpr int kForwardButtonWidth = 64;
+constexpr int kReloadButtonWidth = 80;
+constexpr int kStopButtonWidth = 64;
+constexpr int kHomeButtonWidth = 64;
+constexpr int kControlHeight = 38;
+constexpr int kBrandWidth = 88;
+constexpr int kBadgeWidth = 112;
 constexpr int kStatusHeight = 18;
 constexpr int kProgressHeight = 4;
-constexpr int kGroupRowHeight = 30;
-constexpr int kTabsRowHeight = 36;
-constexpr int kToolbarTop = 92;
-constexpr int kAddressShellHeight = 42;
+constexpr int kGroupRowHeight = 32;
+constexpr int kTabsRowHeight = 38;
+constexpr int kToolbarTop = 98;
+constexpr int kAddressShellHeight = 44;
 constexpr int kNewTabButtonWidth = 42;
 
 std::wstring BuildSearchUrl(std::wstring_view query, std::wstring_view search_url_template) {
@@ -48,12 +48,34 @@ LRESULT CALLBACK AddressBarSubclassProc(HWND window,
                                         UINT_PTR subclass_id,
                                         DWORD_PTR reference_data) {
   (void)subclass_id;
-  if (message == WM_KEYDOWN && wparam == VK_RETURN) {
-    PostMessageW(reinterpret_cast<HWND>(reference_data),
-                 WM_COMMAND,
-                 MAKEWPARAM(kAddressBarId, kAddressEnterNotification),
-                 reinterpret_cast<LPARAM>(window));
-    return 0;
+  if (message == WM_KEYDOWN || message == WM_SYSKEYDOWN) {
+    const bool control_down = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+    if (wparam == VK_RETURN) {
+      PostMessageW(reinterpret_cast<HWND>(reference_data),
+                   WM_COMMAND,
+                   MAKEWPARAM(kAddressBarId, kAddressEnterNotification),
+                   reinterpret_cast<LPARAM>(window));
+      return 0;
+    }
+    if (wparam == VK_ESCAPE) {
+      PostMessageW(reinterpret_cast<HWND>(reference_data),
+                   WM_COMMAND,
+                   MAKEWPARAM(kAddressBarId, kAddressEscapeNotification),
+                   reinterpret_cast<LPARAM>(window));
+      return 0;
+    }
+    if (control_down && (wparam == 'A' || wparam == 'L')) {
+      SendMessageW(window, EM_SETSEL, 0, -1);
+      return 0;
+    }
+  }
+
+  if (message == WM_CHAR) {
+    // Suppress the classic dialog-control beep for shortcuts we handle
+    // ourselves so the omnibox feels like a browser field instead of a form.
+    if (wparam == 1 || wparam == 12 || wparam == VK_RETURN || wparam == VK_ESCAPE) {
+      return 0;
+    }
   }
   return DefSubclassProc(window, message, wparam, lparam);
 }
@@ -88,7 +110,7 @@ LayoutRects ComputeLayout(const RECT& client_rect) {
   const LONG address_shell_left = rects.home.right + 12;
   const LONG address_shell_right = std::max<LONG>(address_shell_left + 220, rects.profile.left - 12);
   rects.address_shell = {address_shell_left, controls_top - 3, address_shell_right, controls_top - 3 + kAddressShellHeight};
-  rects.address = {rects.address_shell.left + 14,
+  rects.address = {rects.address_shell.left + kAddressProviderWidth + 6,
                    rects.address_shell.top + 8,
                    rects.address_shell.right - 14,
                    rects.address_shell.bottom - 8};
@@ -118,9 +140,17 @@ std::wstring NormalizeAddressInput(std::wstring value, std::wstring_view search_
     return value;
   }
 
-  const bool looks_like_host =
-      value.find(L'.') != std::wstring::npos || value.find(L':') != std::wstring::npos || value == L"localhost";
-  if (!has_whitespace && looks_like_host) {
+  if (value.front() == L'?') {
+    return BuildSearchUrl(value.substr(1), search_url_template);
+  }
+
+  const size_t slash_pos = value.find_first_of(L"/\\");
+  const std::wstring_view host_candidate = slash_pos == std::wstring::npos ? std::wstring_view(value)
+                                                                            : std::wstring_view(value).substr(0, slash_pos);
+  const bool starts_like_host = host_candidate == L"localhost" || host_candidate.rfind(L"www.", 0) == 0 ||
+                                host_candidate.find(L'.') != std::wstring_view::npos ||
+                                host_candidate.find(L':') != std::wstring_view::npos;
+  if (!has_whitespace && starts_like_host) {
     return L"https://" + value;
   }
 

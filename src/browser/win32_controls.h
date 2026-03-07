@@ -18,7 +18,9 @@ constexpr int kPrivacyBadgeId = 1009;
 constexpr int kStatusLabelId = 1010;
 constexpr int kProgressBarId = 1011;
 constexpr WORD kAddressEnterNotification = 0x7010;
-constexpr int kToolbarHeight = 168;
+constexpr WORD kAddressEscapeNotification = 0x7011;
+constexpr int kAddressProviderWidth = 94;
+constexpr int kToolbarHeight = 176;
 
 struct LayoutRects {
   RECT groups_strip{};
